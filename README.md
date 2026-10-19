@@ -1,6 +1,6 @@
 # sync – gemeinsamer Sync-Kern der Methoden-Apps
 
-Stand: Oktober 2026 · **Konzept, noch nicht umgesetzt**
+Stand: Oktober 2026 · **Konzept** · Entscheidungen getroffen · Stufe 0 (einheitliche Speicherschicht in allen Apps) umgesetzt
 
 Die Methoden-Apps von method-commons laufen ohne Server und speichern nur im Browser:
 

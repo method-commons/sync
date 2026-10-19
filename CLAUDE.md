@@ -2,7 +2,7 @@
 
 Gemeinsamer Sync-Kern der Methoden-Apps von method-commons (Morphologische Matrix, 2-Achsen-Matrix,
 RACI-Matrix, 5 Warum, User Stories): lokal zuerst, Versionen, austauschbare Ablage (GitHub-Repo,
-Supabase-Projekt). **Noch nicht umgesetzt** – Stand und Entscheidungen in [docs/KONZEPT.md](docs/KONZEPT.md).
+Supabase-Projekt). **Kern noch nicht umgesetzt** – Stand und Entscheidungen in [docs/KONZEPT.md](docs/KONZEPT.md).
 
 ## Zusammenarbeit
 

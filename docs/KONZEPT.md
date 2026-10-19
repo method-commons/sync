@@ -1,6 +1,6 @@
 # Konzept: gemeinsame Ablage für alle Methoden-Apps
 
-Stand: Oktober 2026 · **Konzept, noch nicht umgesetzt** · offene Entscheidungen am Ende.
+Stand: Oktober 2026 · **Konzept** · Entscheidungen getroffen (am Ende) · Stufe 0 umgesetzt.
 
 Grundlage: [BACKEND.md der Morphologischen Matrix](https://github.com/method-commons/morphological-matrix-app/blob/main/docs/BACKEND.md).
 Dort beschriebene Punkte (Anmeldelink, Recht, Grenzen gegen Missbrauch …) gelten weiter und werden hier
@@ -231,22 +231,41 @@ Wie in BACKEND.md, ergänzt um:
 
 | Stufe | Inhalt | Aufwand |
 |---|---|---|
-| 0 | Speicherschicht der vier jüngeren Apps angleichen (`{ savedAt, data }`, gleiche Funktionen) – lohnt sich auch ohne Sync | klein |
+| 0 | Speicherschicht der vier jüngeren Apps angleichen (`{ savedAt, data }`, gleiche Funktionen) – lohnt sich auch ohne Sync | klein · **umgesetzt** |
 | 1 | Kern mit `memory`- und GitHub-Adapter, Token-Assistent, Statusanzeige, Konfliktdialog; zuerst in einer App | groß |
 | 2 | Versionen (automatisch, benannt, wiederherstellen); Einbau in alle Apps | mittel |
 | 3 | Supabase-Adapter mit Einrichtungsassistent, Prüfung und Team-Einladungslink | groß |
 | 4 | Versionen vergleichen, Übersichtsseite aller Dokumente | mittel |
 | 5 | optional: Teilen mit Rechten (Supabase), „Anmelden mit GitHub“ über Tausch-Dienst, betriebene Ablage | groß |
 
-## Offene Entscheidungen
+## Entscheidungen
 
-1. **Gemeinsames Repo statt Code in jeder App?** – Empfehlung: **ja**, eingebunden als Git-Abhängigkeit mit Tag.
-2. **Erste Ablage:** GitHub oder Supabase? – Empfehlung: **GitHub** als günstige Probe für den Kern, Supabase danach.
-3. **Anmeldung bei GitHub:** Token oder Tausch-Dienst? – Empfehlung: **zunächst fine-grained Token**.
-4. **Erste App für Stufe 1:** – Empfehlung: **Morphologische Matrix** (Speicherschicht passt bereits, größte Nutzung).
-5. **Ein Repo für alle Apps in der Ablage** (Ordner je App) statt je App ein Repo? – Empfehlung: **ein Repo**.
-6. **Übersichtsseite** unter `method-commons.github.io`? – Empfehlung: **später** (Stufe 4).
-7. **Gemeinsame Dialoge aus `ui/`** oder je App gebaut? – Empfehlung: **gemeinsam**, Texte über die Apps ergänzbar.
+Getroffen im Oktober 2026, jeweils wie empfohlen:
 
-Nächster Schritt nach den Entscheidungen: Stufe 0 in den vier Apps, danach Mockups in der Morphologischen
-Matrix (Menü „Ablage …“, Token-Assistent, Statusanzeige, Konfliktdialog), umsetzen erst nach „Ja“.
+1. **Gemeinsames Repo** statt Code in jeder App, eingebunden als Git-Abhängigkeit mit Tag.
+2. **Erste Ablage: GitHub** als günstige Probe für den Kern, Supabase danach.
+3. **Anmeldung bei GitHub:** zunächst **fine-grained Token**; Tausch-Dienst später.
+4. **Erste App für Stufe 1:** **Morphologische Matrix**.
+5. **Ein Repo für alle Apps** in der Ablage (Ordner je App).
+6. **Übersichtsseite** unter `method-commons.github.io`: **später** (Stufe 4).
+7. **Gemeinsame Dialoge** aus `ui/`, Texte über die Apps ergänzbar.
+
+## Stand der Stufe 0
+
+Alle fünf Apps speichern jedes Dokument im localStorage als `{ savedAt, data }` und bieten in
+`js/storage.js` dieselben Funktionen – Grundlage für den App-Adapter (`list`/`read`/`write`/`remove`):
+
+| Funktion | Bedeutung |
+|---|---|
+| `readDoc(id)` | `{ id, savedAt, data }` (normalisiert) oder `null` |
+| `writeDoc(id, data, savedAt?)` | speichern, `savedAt` vorgegeben z. B. beim Übernehmen aus einer Ablage |
+| `removeDoc(id)` | entfernen |
+| `listDocs()` | alle Einträge, zuletzt gespeicherte zuerst |
+| `docIdFromKey(key)` | ID zu einem Speicherschlüssel (für `storage`-Ereignisse) |
+
+In RACI-Matrix, 2-Achsen-Matrix, 5 Warum und User Stories werden ältere Einträge ohne Hülle weiter
+gelesen und beim nächsten Speichern umgestellt; `load`, `save` und `all` bleiben dort als Kurzformen
+für die Oberfläche.
+
+Nächster Schritt: Mockups in der Morphologischen Matrix (Menü „Ablage …“, Token-Assistent,
+Statusanzeige, Konfliktdialog), umsetzen erst nach „Ja“; danach Stufe 1.
