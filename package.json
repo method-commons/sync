@@ -1,6 +1,6 @@
 {
   "name": "@method-commons/sync",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "license": "MIT",
   "description": "Gemeinsamer Sync-Kern der Methoden-Apps: lokal zuerst, Versionen, austauschbare Ablage.",
   "type": "module",

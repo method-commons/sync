@@ -10,7 +10,7 @@
  * Die Merkliste liegt im localStorage und wird von allen Tabs der App geteilt; ein Abgleich läuft
  * unter einer Web-Sperre, damit nie zwei Tabs gleichzeitig übertragen.
  */
-import { AuthError, ConflictError, OfflineError } from './store.js';
+import { AuthError, ConflictError, OfflineError, SetupError } from './store.js';
 
 /** @typedef {import('./store.js').RemoteStore} RemoteStore */
 /** @typedef {import('./store.js').StoredRecord} StoredRecord */
@@ -70,6 +70,24 @@ import { AuthError, ConflictError, OfflineError } from './store.js';
  * @property {Record<string, DocState>} docs
  * @property {string[]} conflicts IDs mit Konflikt
  * @property {RemoteDoc[]} remoteOnly
+ */
+
+/**
+ * @typedef {object} Version Eintrag der Versionsliste
+ * @property {string} sha
+ * @property {number} date Zeitpunkt der Übertragung
+ * @property {string} device aus der Commit-Nachricht
+ * @property {string} [name] Name, falls benannt
+ * @property {string} [note]
+ * @property {boolean} [current] neuester Stand in der Ablage
+ */
+
+/**
+ * @typedef {object} VersionInfo Inhalt eines Stands, kurz beschrieben
+ * @property {number} savedAt
+ * @property {string} device
+ * @property {string} title
+ * @property {string} summary
  */
 
 export const META_PREFIX = 'method-commons:sync:docs:';
@@ -144,6 +162,8 @@ export class SyncEngine {
     this.forceAgain = false;
     this.failures = 0;
     this.stopped = false;
+    /** Beschreibungen früherer Stände je Kennung. @type {Map<string, Promise<VersionInfo | null>>} */
+    this.versionInfos = new Map();
   }
 
   // ---------- Merkliste ----------
@@ -551,4 +571,122 @@ export class SyncEngine {
     this.refreshDocs(this.loadMeta());
     return ok;
   }
+
+  // ---------- Versionen ----------
+
+  /**
+   * Stände eines Dokuments, neueste zuerst; benannte Stände mit Name und Notiz. Seite 1 markiert den
+   * neuesten als `current`. Benannte Stände, deren Commit nicht auf der Seite liegt, fehlen hier –
+   * `named` liefert sie alle (für den Filter „Nur benannte“).
+   * @param {string} id @param {number} [page]
+   * @returns {Promise<{ items: Version[], more: boolean, named: Version[] }>}
+   */
+  async versions(id, page = 1) {
+    const { app } = this.adapter;
+    const [list, tags] = await Promise.all([this.store.versions(app, id, page), this.store.namedVersions(app, id)]);
+    const bySha = new Map(tags.map(t => [t.sha, t]));
+    /** @type {Version[]} */
+    const items = list.items.map((c, i) => {
+      const t = bySha.get(c.sha);
+      return { sha: c.sha, date: c.date, device: deviceOf(c.message), ...(t ? { name: t.name, note: t.note } : {}), ...(page === 1 && i === 0 ? { current: true } : {}) };
+    });
+    const named = tags.map(t => items.find(v => v.sha === t.sha) ?? { sha: t.sha, date: t.date, device: '', name: t.name, note: t.note });
+    return { items, more: list.more, named };
+  }
+
+  /**
+   * Kurzbeschreibung eines Stands (Titel, Kennzahlen); je Stand nur einmal geladen.
+   * @param {string} id @param {string} sha @returns {Promise<VersionInfo | null>}
+   */
+  versionInfo(id, sha) {
+    let p = this.versionInfos.get(sha);
+    if (!p) {
+      p = this.store.getVersion(this.adapter.app, id, sha).then(r => {
+        if (!r) return null;
+        let title = id;
+        let summary = '';
+        try {
+          const data = this.adapter.normalize(r.data);
+          title = this.adapter.title(data);
+          summary = this.adapter.summary?.(data) ?? '';
+        } catch (e) { /* unlesbar: nur die ID */ }
+        return { savedAt: Number(r.savedAt) || 0, device: String(r.device || ''), title, summary };
+      });
+      p.catch(() => this.versionInfos.delete(sha));
+      this.versionInfos.set(sha, p);
+    }
+    return p;
+  }
+
+  /**
+   * Inhalt eines Stands, geprüft von der App (zum Ansehen, Wiederherstellen, Kopieren).
+   * @param {string} id @param {string} sha
+   * @returns {Promise<{ data: unknown, savedAt: number, device: string }>}
+   */
+  async versionData(id, sha) {
+    const r = await this.store.getVersion(this.adapter.app, id, sha);
+    if (!r) throw new SetupError('version-missing', 404);
+    if (r.schemaVersion > this.adapter.schemaVersion) throw new SetupError('newer-schema', 400);
+    return { data: this.adapter.normalize(r.data), savedAt: Number(r.savedAt) || 0, device: String(r.device || '') };
+  }
+
+  /**
+   * Aktuellen Stand sofort übertragen (ohne Drosselung) und benennen.
+   * Wirft {@link ConflictError} bei einem offenen Konflikt, {@link SetupError} `local-only`, wenn das
+   * Dokument nur im Browser bleiben soll.
+   * @param {string} id @param {string} name @param {string} [note]
+   */
+  async saveVersion(id, name, note = '') {
+    const { adapter } = this;
+    await this.run({ force: true });
+    await this.withLock(async () => {
+      const meta = this.loadMeta();
+      const m = meta[id];
+      const local = adapter.read(id);
+      if (!local || m?.localOnly) throw new SetupError('local-only', 400);
+      if (m?.conflict !== undefined) throw new ConflictError();
+      // während eines laufenden Abgleichs geändert: jetzt übertragen
+      if (!m || !m.head || isDirty(local, m)) await this.push(local, m?.head ?? null, meta);
+      if (meta[id]?.conflict !== undefined) throw new ConflictError();
+    });
+    this.refreshDocs(this.loadMeta());
+    const { items } = await this.store.versions(adapter.app, id, 1);
+    if (!items[0]) throw new SetupError('version-missing', 404);
+    return this.store.saveVersion(adapter.app, id, { sha: items[0].sha, name: name.trim(), note: note.trim(), date: this.now() });
+  }
+
+  /**
+   * Früheren Stand als neuen Stand übernehmen; der bisherige bleibt als Version erhalten.
+   * @param {string} id @param {string} sha
+   * @returns {Promise<boolean>} false: von der App abgelehnt (ungespeicherte Eingaben)
+   */
+  async restore(id, sha) {
+    const { data } = await this.versionData(id, sha);
+    // bisherigen Stand zuerst übertragen, damit er als Version erhalten bleibt
+    await this.run({ force: true });
+    if (this.loadMeta()[id]?.conflict !== undefined) throw new ConflictError();
+    if (!this.adapter.write(id, data, this.now())) return false;
+    this.changed(id);
+    await this.flush();
+    return true;
+  }
+
+  /**
+   * Früheren Stand als neues Dokument anlegen.
+   * @param {string} id @param {string} sha @param {string} label Zusatz zum Titel, z. B. „Stand vom 14.10., 16:05“
+   * @returns {Promise<string>} ID der Kopie
+   */
+  async copyVersion(id, sha, label) {
+    const { data } = await this.versionData(id, sha);
+    const copy = this.adapter.duplicate(data, label);
+    this.adapter.write(copy.id, copy.data, this.now());
+    this.changed(copy.id);
+    await this.flush();
+    return copy.id;
+  }
+}
+
+/** Gerät aus der Commit-Nachricht „Titel (Gerät)“. @param {string} message */
+export function deviceOf(message) {
+  return /\(([^()]*)\)\s*$/.exec(message.split('\n')[0])?.[1] ?? '';
 }

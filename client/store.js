@@ -27,6 +27,22 @@
  */
 
 /**
+ * @typedef {object} VersionEntry Ein übertragener Stand (GitHub: Commit, der die Datei ändert)
+ * @property {string} sha Kennung des Stands (Commit)
+ * @property {number} date Zeitpunkt (ms)
+ * @property {string} message Commit-Nachricht („Titel (Gerät)“)
+ */
+
+/**
+ * @typedef {object} NamedVersion Benannter Stand (GitHub: annotierter Tag auf den Commit)
+ * @property {string} sha Commit, auf den der Name zeigt
+ * @property {string} ref Name des Tags ohne `refs/tags/`
+ * @property {string} name
+ * @property {string} note
+ * @property {number} date
+ */
+
+/**
  * @typedef {object} RemoteStore Schnittstelle jeder Ablage
  * @property {() => Promise<StoreCheck>} check
  * @property {(app: string) => Promise<RemoteEntry[]>} list
@@ -34,7 +50,27 @@
  * @property {(app: string, id: string, record: StoredRecord, baseHead: string | null, message: string) => Promise<string>} put
  *   neuer Stand; `baseHead` null = neu anlegen. Wirft {@link ConflictError}, wenn der Stand inzwischen ein anderer ist.
  * @property {(app: string, id: string, baseHead: string, message: string) => Promise<void>} remove
+ * @property {(app: string, id: string, page?: number) => Promise<{ items: VersionEntry[], more: boolean }>} versions
+ *   übertragene Stände, neueste zuerst, seitenweise
+ * @property {(app: string, id: string) => Promise<NamedVersion[]>} namedVersions benannte Stände, neueste zuerst
+ * @property {(app: string, id: string, sha: string) => Promise<StoredRecord | null>} getVersion Eintrag eines Stands
+ * @property {(app: string, id: string, v: { sha: string, name: string, note?: string, date: number }) => Promise<NamedVersion>} saveVersion
+ *   Stand benennen
  */
+
+/** Seitengröße der Versionsliste. */
+export const VERSIONS_PAGE = 30;
+
+/**
+ * Name eines Stands als Teil eines Tag-Namens: Datum und Name, nur Kleinbuchstaben, Ziffern und Bindestriche.
+ * @param {string} name @param {number} date
+ */
+export function versionSlug(name, date) {
+  const day = new Date(date).toISOString().slice(0, 10);
+  const words = name.toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  return words ? `${day}-${words}` : day;
+}
 
 /** Der Stand in der Ablage ist ein anderer als der, auf dem die Änderung beruht. */
 export class ConflictError extends Error {

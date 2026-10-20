@@ -80,7 +80,10 @@ RemoteStore = {
   get(app, id),                              // { record: { app, schemaVersion, savedAt, device, data }, head } | null
   put(app, id, record, baseHead, message),   // neuer head – oder ConflictError
   remove(app, id, baseHead, message),
-  // ab Stufe 2: versions(app, id), getVersion(app, id, v), saveVersion(app, id, name)
+  versions(app, id, page),                   // { items: [{ sha, date, message }], more } – neueste zuerst, je 30
+  namedVersions(app, id),                    // [{ sha, ref, name, note, date }]
+  getVersion(app, id, sha),                  // record | null
+  saveVersion(app, id, { sha, name, note, date }), // benennen
 }
 ```
 
@@ -329,4 +332,21 @@ GitHub-API. Erkenntnisse beim Einbau:
   auch Import, Duplizieren und Beispiele erfasst sind; die Morphologische Matrix meldet nach dem Speichern.
 - **Zeitplanung:** Ein früher geplanter Abgleich wird nicht durch einen späteren ersetzt (0.2.1).
 
-Nächster Schritt: Stufe 2 (Versionen-Dialog: Liste, benannter Stand, Wiederherstellen).
+## Stand der Stufe 2 (Versionen)
+
+Umgesetzt im Kern `0.3.0` nach den [Mockups](https://github.com/method-commons/morphological-matrix-app/tree/main/docs/mockups/versionen)
+mit den Entscheidungen wie empfohlen:
+
+- **Versionen = Commits der Datei** (`GET /commits?path=…`, je Seite 30); das Gerät steht in der Commit-Nachricht.
+- **Benannte Stände = annotierte Tags** `<app>/<id>/<datum>-<name>` auf den Commit, Notiz in der Nachricht des
+  Tags; gleicher Name am selben Tag bekommt eine Zahl. „Stand speichern“ überträgt vorher sofort (ohne Drosselung).
+- **Liste:** nach Tagen, der neueste Tag (bzw. heute) ausgeklappt, ältere eingeklappt; Filter „Nur benannte“;
+  Kennzahlen je Stand werden erst geladen, wenn er zu sehen ist (`versionInfo`, je Stand zwischengespeichert).
+- **Ansehen:** Die App zeigt den Stand nur lesend (`onPreview` → App sperrt Speichern und Bearbeiten), Leiste
+  `PreviewBar` mit „Wiederherstellen …“, „Als Kopie öffnen“, „Zurück zum aktuellen Stand“.
+- **Wiederherstellen:** überträgt zuerst den bisherigen Stand (bleibt als Version), dann den früheren als neuen
+  Stand; bei offenem Konflikt abgelehnt. **Als Kopie öffnen:** neues Dokument „Titel (Stand vom …)“.
+- **Ohne Ablage:** „Versionen …“ erklärt die Ablage und bietet „Ablage einrichten …“ an.
+- **Zugang:** Menü „Datei → Versionen …“ der App (`ui.openVersions(id)`) und Details der Statusanzeige.
+
+Nächster Schritt: Stufe 3 (Supabase) bzw. Vergleichen zweier Stände (Stufe 4).

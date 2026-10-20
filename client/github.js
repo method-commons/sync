@@ -3,7 +3,7 @@
  * Jedes Dokument ist eine Datei `<app>/<id>.json`, jeder übertragene Stand ein Commit.
  * Ändern und Löschen verlangen den `sha` des bisherigen Stands – so erkennt GitHub Konflikte.
  */
-import { AuthError, ConflictError, OfflineError, SetupError } from './store.js';
+import { AuthError, ConflictError, OfflineError, SetupError, VERSIONS_PAGE, versionSlug } from './store.js';
 
 /** @typedef {import('./store.js').StoredRecord} StoredRecord */
 
@@ -146,5 +146,65 @@ export class GitHubStore {
   async remove(app, id, baseHead, message) {
     await this.request('DELETE', this.file(`${app}/${id}.json`),
       this.withBranch({ message, sha: baseHead }), { allow404: true });
+  }
+
+  // ---------- Versionen ----------
+
+  /** Übertragene Stände einer Datei (Commits), neueste zuerst. @param {string} app @param {string} id @param {number} [page] */
+  async versions(app, id, page = 1) {
+    const q = `path=${encodeURIComponent(`${app}/${id}.json`)}&per_page=${VERSIONS_PAGE}&page=${page}${this.branch ? `&sha=${encodeURIComponent(this.branch)}` : ''}`;
+    const list = await this.request('GET', `/repos/${this.repo}/commits?${q}`, undefined, { allow404: true });
+    const items = (Array.isArray(list) ? list : []).map(c => ({
+      sha: String(c.sha),
+      date: Date.parse(c.commit?.committer?.date ?? c.commit?.author?.date ?? '') || 0,
+      message: String(c.commit?.message ?? ''),
+    }));
+    return { items, more: items.length === VERSIONS_PAGE };
+  }
+
+  /** Benannte Stände (annotierte Tags unter `<app>/<id>/`), neueste zuerst. @param {string} app @param {string} id */
+  async namedVersions(app, id) {
+    const refs = await this.request('GET', `/repos/${this.repo}/git/matching-refs/tags/${encPath(`${app}/${id}`)}/`, undefined, { allow404: true });
+    /** @type {import('./store.js').NamedVersion[]} */
+    const out = [];
+    for (const r of Array.isArray(refs) ? refs : []) {
+      const ref = String(r.ref).replace(/^refs\/tags\//, '');
+      if (r.object?.type === 'tag') {
+        const tag = await this.request('GET', `/repos/${this.repo}/git/tags/${r.object.sha}`, undefined, { allow404: true });
+        if (!tag) continue;
+        const [first, ...rest] = String(tag.message ?? '').trim().split('\n');
+        out.push({ sha: String(tag.object?.sha), ref, name: first || ref.split('/').pop() || ref, note: rest.join('\n').trim(), date: Date.parse(tag.tagger?.date ?? '') || 0 });
+      } else {
+        out.push({ sha: String(r.object?.sha), ref, name: ref.split('/').pop() || ref, note: '', date: 0 });
+      }
+    }
+    return out.sort((a, b) => b.date - a.date);
+  }
+
+  /** Eintrag eines früheren Stands. @param {string} app @param {string} id @param {string} sha */
+  async getVersion(app, id, sha) {
+    const file = await this.request('GET', `${this.file(`${app}/${id}.json`)}?ref=${encodeURIComponent(sha)}`, undefined, { allow404: true });
+    return file ? JSON.parse(decodeBase64(file.content)) : null;
+  }
+
+  /**
+   * Stand benennen: annotierter Tag `<app>/<id>/<datum>-<name>` mit Name und Notiz als Nachricht.
+   * Gibt es den Namen schon, wird eine Zahl angehängt.
+   * @param {string} app @param {string} id @param {{ sha: string, name: string, note?: string, date: number }} v
+   */
+  async saveVersion(app, id, { sha, name, note = '', date }) {
+    const message = note.trim() ? `${name}\n\n${note.trim()}` : name;
+    const base = `${app}/${id}/${versionSlug(name, date)}`;
+    for (let n = 1; n <= 5; n++) {
+      const ref = n === 1 ? base : `${base}-${n}`;
+      const tag = await this.request('POST', `/repos/${this.repo}/git/tags`, { tag: ref, message, object: sha, type: 'commit' });
+      try {
+        await this.request('POST', `/repos/${this.repo}/git/refs`, { ref: `refs/tags/${ref}`, sha: tag.sha });
+        return { sha, ref, name, note: note.trim(), date };
+      } catch (e) {
+        if (!(e instanceof ConflictError)) throw e; // Name schon vergeben: nächste Zahl
+      }
+    }
+    throw new ConflictError('tag-exists');
   }
 }

@@ -6,7 +6,7 @@
  */
 import { h, render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { AuthError, OfflineError, SetupError } from '../client/store.js';
+import { AuthError, ConflictError, OfflineError, SetupError } from '../client/store.js';
 import { APP_NAMES, textsFor } from './texts.js';
 
 /** @typedef {import('../client/controller.js').SyncController} SyncController */
@@ -28,6 +28,12 @@ const PATHS = {
   ext: 'M14 5h5v5M19 5l-8 8M17 14v5H5V7h5',
   close: 'M6 6l12 12M18 6L6 18',
   cloud: 'M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.2 4.5 4.5 0 0 0 7 18z',
+  eye: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 9.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6z',
+  tag: 'M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1 1 0 0 1 0 1.4l-7.3 7.3a1 1 0 0 1-1.4 0zM8 8h.01',
+  undo: 'M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
+  copy: 'M9 9h10v10H9zM5 15V5h10',
+  right: 'M9 6l6 6-6 6',
+  history: 'M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4.5H8M12 7.5V12l3 2',
   db: 'M5 6c0-1.4 3.1-2.5 7-2.5s7 1.1 7 2.5-3.1 2.5-7 2.5S5 7.4 5 6zM5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5',
 };
 const GITHUB = 'M12 2.5a9.5 9.5 0 0 0-3 18.5c.5.1.7-.2.7-.5v-1.7c-2.6.6-3.2-1.2-3.2-1.2-.4-1.1-1-1.4-1-1.4-.9-.6 0-.6 0-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.3-1.1.6-1.3-2.1-.2-4.3-1-4.3-4.7 0-1 .4-1.9 1-2.6-.1-.2-.4-1.2.1-2.5 0 0 .8-.3 2.6 1a9 9 0 0 1 4.8 0c1.8-1.3 2.6-1 2.6-1 .5 1.3.2 2.3.1 2.5.6.7 1 1.6 1 2.6 0 3.7-2.2 4.5-4.3 4.7.3.3.6.9.6 1.8v2.7c0 .3.2.6.7.5A9.5 9.5 0 0 0 12 2.5z';
@@ -54,6 +60,20 @@ function useController(controller) {
 /** @param {string} repo */
 const repoUrl = repo => `https://github.com/${repo}`;
 
+/** @param {unknown} e */
+const messageOf = e => String(/** @type {any} */ (e)?.message ?? e);
+
+/**
+ * @typedef {object} Preview Früherer Stand, den die App nur lesend zeigt
+ * @property {string} id
+ * @property {string} sha
+ * @property {number} date
+ * @property {string} device
+ * @property {string} [name]
+ * @property {unknown} data
+ */
+/** @typedef {import('../client/engine.js').Version} Version */
+
 /**
  * @param {object} opts
  * @param {SyncController} opts.controller
@@ -63,8 +83,9 @@ const repoUrl = repo => `https://github.com/${repo}`;
  * @param {(id: string) => void} [opts.onOpenDoc] Dokument öffnen (nach „Öffnen“ bzw. „Beide behalten“)
  * @param {(message: string) => void} [opts.toast]
  * @param {(doc: { id: string, data: unknown }) => boolean} [opts.preselect] beim Einrichten zum Hochladen vorausgewählt?
+ * @param {(preview: Preview | null) => void} [opts.onPreview] früheren Stand nur lesend zeigen (`null`: zurück zum aktuellen)
  */
-export function createSyncUI({ controller, lang, nouns, currentId = () => null, onOpenDoc = () => {}, toast = () => {}, preselect = () => true }) {
+export function createSyncUI({ controller, lang, nouns, currentId = () => null, onOpenDoc = () => {}, toast = () => {}, preselect = () => true, onPreview = () => {} }) {
   const T = textsFor(lang);
   const adapter = controller.adapter;
   const dateTime = new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short' });
@@ -318,6 +339,251 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
       h(Note, null, T.conflict.note));
   }
 
+  // ---------- Versionen ----------
+
+  const dayMonth = new Intl.DateTimeFormat(lang, { day: '2-digit', month: '2-digit' });
+  /** Überschrift eines Tages. @param {number} t */
+  function dayLabel(t) {
+    const d = new Date(t).toDateString();
+    if (d === new Date().toDateString()) return T.versions.today;
+    if (d === new Date(Date.now() - 86_400_000).toDateString()) return T.versions.yesterday(dayMonth.format(t));
+    return dateOnly.format(t);
+  }
+
+  /** Früherer Stand, der gerade angesehen wird. @type {Preview | null} */
+  let preview = null;
+  /** @type {Set<() => void>} */
+  const previewListeners = new Set();
+  /** @param {Preview | null} p */
+  function setPreview(p) {
+    preview = p;
+    onPreview(p);
+    previewListeners.forEach(fn => fn());
+  }
+  /** Ansehen beenden (z. B. beim Öffnen eines anderen Dokuments). */
+  function endPreview() { if (preview) setPreview(null); }
+
+  /** @param {string} id @param {Version} v */
+  async function view(id, v) {
+    try {
+      const { data } = await /** @type {import('../client/engine.js').SyncEngine} */ (controller.engine).versionData(id, v.sha);
+      closeDialog();
+      setPreview({ id, sha: v.sha, date: v.date, device: v.device, name: v.name, data });
+    } catch (e) {
+      toast(T.versions.failed(messageOf(e)));
+    }
+  }
+
+  /** @param {string} id @param {Version} v */
+  async function copy(id, v) {
+    try {
+      const copyId = await /** @type {import('../client/engine.js').SyncEngine} */ (controller.engine).copyVersion(id, v.sha, T.versions.copyLabel(dateTime.format(v.date)));
+      endPreview();
+      closeDialog();
+      onOpenDoc(copyId);
+    } catch (e) {
+      toast(T.versions.failed(messageOf(e)));
+    }
+  }
+
+  /** Kennzahlen eines Stands, erst geladen, wenn er zu sehen ist. @param {{ id: string, v: Version }} props */
+  function VersionMeta({ id, v }) {
+    const [info, setInfo] = useState(/** @type {import('../client/engine.js').VersionInfo | null} */ (null));
+    useEffect(() => { controller.engine?.versionInfo(id, v.sha).then(setInfo, () => {}); }, [v.sha]);
+    return h('span', { class: 'mcs-doc-meta' }, [v.device || info?.device, info?.summary].filter(Boolean).join(' · ') || '\u00a0');
+  }
+
+  /** @param {{ id: string, v: Version, withDate?: boolean }} props */
+  function VersionRow({ id, v, withDate = false }) {
+    return h('li', { class: `mcs-doc mcs-version${v.current ? ' is-current' : ''}${v.name ? ' is-named' : ''}`, 'data-version': v.sha },
+      h('span', { class: 'mcs-version-time' }, withDate ? dateTime.format(v.date) : timeOnly.format(v.date)),
+      h('div', { class: 'mcs-doc-info' },
+        v.current || v.name ? h('span', { class: 'mcs-doc-title' },
+          v.current ? h('span', { class: 'mcs-badge mcs-badge-first' }, T.versions.current) : null,
+          v.name ? h('span', { class: 'mcs-version-name' }, Icon('tag', 14), v.name) : null) : null,
+        v.note ? h('span', { class: 'mcs-doc-desc' }, v.note) : null,
+        h(VersionMeta, { id, v })),
+      v.current ? null : h('div', { class: 'mcs-doc-actions' },
+        h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'view', onClick: () => view(id, v) }, Icon('eye'), T.versions.view),
+        h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'restore', onClick: () => openRestore(id, v) }, Icon('undo'), T.versions.restore)));
+  }
+
+  /** @param {{ id: string }} props */
+  function VersionsDialog({ id }) {
+    const { config, sync } = useController(controller);
+    const [items, setItems] = useState(/** @type {Version[] | null} */ (null));
+    const [named, setNamed] = useState(/** @type {Version[]} */ ([]));
+    const [page, setPage] = useState(1);
+    const [more, setMore] = useState(false);
+    const [error, setError] = useState('');
+    const [onlyNamed, setOnlyNamed] = useState(false);
+    const [open, setOpen] = useState(/** @type {Set<string>} */ (new Set()));
+    const local = adapter.read(id);
+    const title = local ? adapter.title(local.data) : id;
+    const state = sync?.docs[id];
+
+    /** @param {number} p */
+    async function load(p) {
+      setError('');
+      try {
+        const r = await /** @type {import('../client/engine.js').SyncEngine} */ (controller.engine).versions(id, p);
+        setItems(prev => (p === 1 ? r.items : [...(prev ?? []), ...r.items]));
+        setNamed(r.named);
+        setMore(r.more);
+        setPage(p);
+      } catch (e) {
+        setError(T.versions.error(messageOf(e)));
+        setItems(prev => prev ?? []);
+      }
+    }
+    useEffect(() => { if (state !== 'local') load(1); }, [id]);
+
+    const head = h(Head, { title: T.versions.title(title) });
+    if (!config) return h('div', null, head);
+    if (state === 'local') {
+      return h('div', { class: 'mcs-versions' }, head, h(Note, null, T.versions.localOnly(nouns)),
+        h('div', { class: 'mcs-foot' }, h('button', { type: 'button', class: 'mcs-btn mcs-primary', onClick: closeDialog }, T.versions.close)));
+    }
+
+    /** Stände nach Tagen; der neueste Tag ist aufgeklappt. @type {{ key: string, label: string, list: Version[] }[]} */
+    const days = [];
+    for (const v of items ?? []) {
+      const key = new Date(v.date).toDateString();
+      const last = days[days.length - 1];
+      if (last?.key === key) last.list.push(v); else days.push({ key, label: dayLabel(v.date), list: [v] });
+    }
+    const isOpen = (/** @type {string} */ key, /** @type {number} */ i) => i === 0 || key === new Date().toDateString() || open.has(key);
+    const historyUrl = `${repoUrl(config.repo)}/commits/${config.branch || 'HEAD'}/${adapter.app}/${id}.json`;
+
+    return h('div', { class: 'mcs-versions' },
+      head,
+      h('p', { class: 'mcs-hint' }, T.versions.hint),
+      h('div', { class: 'mcs-toolbar' },
+        h('button', { type: 'button', class: 'mcs-btn mcs-primary', 'data-sync': 'save-version', disabled: state === 'conflict', onClick: () => openSaveVersion(id) }, Icon('tag'), T.versions.save),
+        h('div', { class: 'mcs-seg', role: 'group' },
+          h('button', { type: 'button', 'aria-pressed': onlyNamed ? 'false' : 'true', onClick: () => setOnlyNamed(false) }, T.versions.all),
+          h('button', { type: 'button', 'aria-pressed': onlyNamed ? 'true' : 'false', 'data-sync': 'only-named', onClick: () => setOnlyNamed(true) }, T.versions.named)),
+        h('span', { class: 'mcs-spacer' }),
+        h('a', { class: 'mcs-link', href: historyUrl, target: '_blank', rel: 'noopener' }, T.versions.onGitHub, Icon('ext', 14))),
+      state === 'conflict' ? h(Note, { icon: 'warn', tone: 'warn' }, T.versions.conflict) : null,
+      error ? h('p', { class: 'mcs-error', role: 'alert' }, error) : null,
+      items == null ? h('p', { class: 'mcs-muted' }, T.versions.loading)
+        : onlyNamed ? (named.length
+          ? h('ul', { class: 'mcs-list' }, named.map(v => h(VersionRow, { id, v, withDate: true, key: v.sha })))
+          : h('p', { class: 'mcs-muted' }, T.versions.noNamed))
+          : !items.length ? h('p', { class: 'mcs-muted' }, T.versions.empty(nouns))
+            : days.map((d, i) => h('section', { class: 'mcs-day', key: d.key },
+              h('div', { class: 'mcs-h' }, d.label),
+              isOpen(d.key, i)
+                ? h('ul', { class: 'mcs-list' }, d.list.map(v => h(VersionRow, { id, v, key: v.sha })))
+                : h('button', { type: 'button', class: 'mcs-collapsed', 'data-sync': 'expand', onClick: () => setOpen(new Set([...open, d.key])) },
+                  Icon('right', 14), T.versions.collapsed(d.list.length)))),
+      !onlyNamed && more ? h('button', { type: 'button', class: 'mcs-btn mcs-small mcs-more', onClick: () => load(page + 1) }, T.versions.more) : null);
+  }
+
+  /** @param {{ id: string }} props */
+  function SaveVersionDialog({ id }) {
+    const [name, setName] = useState('');
+    const [note, setNote] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    async function save() {
+      setBusy(true);
+      setError('');
+      try {
+        const tag = await /** @type {import('../client/engine.js').SyncEngine} */ (controller.engine).saveVersion(id, name, note);
+        toast(T.versions.saved(tag.name));
+        openVersions(id);
+      } catch (e) {
+        setError(e instanceof ConflictError ? T.versions.conflict
+          : e instanceof SetupError && e.message === 'local-only' ? T.versions.localOnly(nouns) : T.versions.failed(messageOf(e)));
+      } finally {
+        setBusy(false);
+      }
+    }
+    return h('form', { class: 'mcs-save-version', onSubmit: (/** @type {Event} */ e) => { e.preventDefault(); save(); } },
+      h(Head, { title: T.versions.saveTitle }),
+      h('p', { class: 'mcs-hint' }, T.versions.saveHint),
+      h('label', { class: 'mcs-field' }, T.versions.name,
+        h('input', { name: 'name', value: name, required: true, maxLength: 80, placeholder: T.versions.namePlaceholder, autofocus: true, onInput: (/** @type {any} */ e) => setName(e.currentTarget.value) })),
+      h('label', { class: 'mcs-field' }, T.versions.note,
+        h('textarea', { name: 'note', value: note, rows: 3, onInput: (/** @type {any} */ e) => setNote(e.currentTarget.value) })),
+      error ? h('p', { class: 'mcs-error', role: 'alert' }, error) : null,
+      h('div', { class: 'mcs-foot' },
+        h('button', { type: 'button', class: 'mcs-btn', onClick: () => openVersions(id) }, T.versions.cancel),
+        h('button', { type: 'submit', class: 'mcs-btn mcs-primary', 'data-sync': 'save-version-confirm', disabled: busy || !name.trim() }, busy ? T.versions.saving : T.versions.saveButton)));
+  }
+
+  /** @param {{ id: string, v: Version }} props */
+  function RestoreDialog({ id, v }) {
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const local = adapter.read(id);
+    async function restore() {
+      setBusy(true);
+      setError('');
+      try {
+        // Vorschau zuerst beenden: Die App nimmt den Stand sonst nicht an
+        endPreview();
+        if (await /** @type {import('../client/engine.js').SyncEngine} */ (controller.engine).restore(id, v.sha)) {
+          closeDialog();
+          toast(T.versions.restored(dateTime.format(v.date)));
+        } else {
+          setError(T.versions.refused);
+        }
+      } catch (e) {
+        setError(e instanceof ConflictError ? T.versions.conflict : T.versions.failed(messageOf(e)));
+      } finally {
+        setBusy(false);
+      }
+    }
+    return h('div', { class: 'mcs-restore' },
+      h(Head, { title: T.versions.restoreTitle }),
+      h('div', { class: 'mcs-sides' },
+        h('div', { class: 'mcs-side is-target' }, h('h3', null, T.versions.restoreThis),
+          h('div', { class: 'mcs-doc-meta' }, [dateTime.format(v.date), v.name ? `„${v.name}“` : ''].filter(Boolean).join(' · ')),
+          h(VersionMeta, { id, v })),
+        h('div', { class: 'mcs-side' }, h('h3', null, T.versions.restoreNow),
+          local ? h('div', { class: 'mcs-doc-meta' }, [when(local.savedAt), adapter.summary?.(local.data)].filter(Boolean).join(' · ')) : null)),
+      error ? h('p', { class: 'mcs-error', role: 'alert' }, error) : null,
+      h('div', { class: 'mcs-opts' },
+        h('div', { class: 'mcs-opt' }, h('button', { type: 'button', class: 'mcs-btn mcs-primary', 'data-sync': 'restore-confirm', disabled: busy, onClick: restore }, Icon('undo'), T.versions.restoreButton), h('span', null, T.versions.restoreHint)),
+        h('div', { class: 'mcs-opt' }, h('button', { type: 'button', class: 'mcs-btn', 'data-sync': 'copy', disabled: busy, onClick: () => copy(id, v) }, Icon('copy'), T.versions.copy), h('span', null, T.versions.copyHint(nouns)))),
+      h('div', { class: 'mcs-foot' }, h('button', { type: 'button', class: 'mcs-btn', onClick: () => (preview ? closeDialog() : openVersions(id)) }, T.versions.cancel)));
+  }
+
+  function NoStorageDialog() {
+    return h('div', { class: 'mcs-versions' },
+      h(Head, { title: T.versions.noStorageTitle }),
+      h('p', { class: 'mcs-hint' }, T.versions.noStorage(nouns)),
+      h(Note, null, T.versions.noStorageNote),
+      h('div', { class: 'mcs-foot' },
+        h('button', { type: 'button', class: 'mcs-btn', onClick: closeDialog }, T.versions.close),
+        h('button', { type: 'button', class: 'mcs-btn mcs-primary', 'data-sync': 'setup', onClick: openStorage }, T.versions.setUp)));
+  }
+
+  /** Leiste über dem früheren Stand: Wiederherstellen, Kopie, zurück. */
+  function PreviewBar() {
+    const [, setTick] = useState(0);
+    useEffect(() => {
+      const fn = () => setTick(t => t + 1);
+      previewListeners.add(fn);
+      return () => { previewListeners.delete(fn); };
+    }, []);
+    const p = preview;
+    if (!p) return null;
+    const v = { sha: p.sha, date: p.date, device: p.device, name: p.name };
+    return h('div', { class: 'mcs-preview', role: 'status', id: 'syncPreview' },
+      Icon('eye', 18),
+      h('div', { class: 'mcs-preview-text' },
+        h('b', null, T.versions.preview), ' ', [dateTime.format(p.date), p.device, p.name ? `„${p.name}“` : ''].filter(Boolean).join(' · '),
+        ' – ', T.versions.previewLocked),
+      h('div', { class: 'mcs-row' },
+        h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'preview-restore', onClick: () => openRestore(p.id, v) }, Icon('undo'), T.versions.restore),
+        h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'preview-copy', onClick: () => copy(p.id, v) }, Icon('copy'), T.versions.copy),
+        h('button', { type: 'button', class: 'mcs-btn mcs-small mcs-primary', 'data-sync': 'preview-back', onClick: endPreview }, T.versions.back)));
+  }
+
   // ---------- Statusanzeige ----------
 
   function StatusChip() {
@@ -361,6 +627,7 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
         status !== 'ok' && status !== 'idle' ? h('p', { class: 'mcs-muted' }, T.statusHint[status]) : null,
         h('div', { class: 'mcs-row' },
           h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'flush', onClick: () => { controller.engine?.flush(); } }, Icon('up'), T.pop.pushNow),
+          cur ? h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'versions', onClick: () => { setOpen(false); openVersions(cur); } }, Icon('history'), T.versions.menu) : null,
           h('button', { type: 'button', class: 'mcs-btn mcs-small', onClick: () => { setOpen(false); openStorage(); } }, T.pop.storage))) : null);
   }
 
@@ -404,8 +671,26 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     show(h(ConflictDialog, { id, key: id }), 'mcs-conflict-dialog');
   }
 
+  /** „Versionen …“ eines Dokuments; ohne Ablage ein Hinweis zum Einrichten. @param {string | null} id */
+  function openVersions(id) {
+    if (!controller.state.config || !controller.engine) show(h(NoStorageDialog, {}), 'mcs-versions-dialog');
+    else if (id) show(h(VersionsDialog, { id, key: `v-${id}` }), 'mcs-versions-dialog');
+  }
+
+  /** @param {string} id */
+  function openSaveVersion(id) {
+    show(h(SaveVersionDialog, { id, key: `s-${id}` }), 'mcs-save-dialog');
+  }
+
+  /** @param {string} id @param {Version} v */
+  function openRestore(id, v) {
+    show(h(RestoreDialog, { id, v, key: `r-${v.sha}` }), 'mcs-restore-dialog');
+  }
+
   return {
-    texts: T, StatusChip, DocState, RemoteOnly, openStorage, openConflict, closeDialog,
+    texts: T, StatusChip, DocState, RemoteOnly, PreviewBar, openStorage, openConflict, openVersions, endPreview, closeDialog,
+    /** Wird gerade ein früherer Stand angesehen? */
+    previewing: () => preview,
     /** Hinweis im Menü: Zustand der Ablage. */
     menuHint: () => (controller.state.config ? T.status[controller.state.sync?.status ?? 'idle'] : T.menu.notSet),
     /** Commit-Nachrichten in der Sprache der App (für die Engine). */

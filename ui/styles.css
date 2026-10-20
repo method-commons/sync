@@ -150,3 +150,32 @@
   .mcs-sides { grid-template-columns: 1fr; }
   .mcs-opt { flex-direction: column; align-items: stretch; }
 }
+
+/* Versionen */
+.mcs-versions-dialog { width: min(720px, calc(100vw - 32px)); }
+.mcs-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 6px; }
+.mcs-seg { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.mcs-seg button { margin: 0; padding: 4px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-weight: 600; font-size: .85rem; cursor: pointer; }
+.mcs-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-xs, 0 1px 2px rgba(16, 24, 40, .08)); }
+.mcs-version { flex-wrap: nowrap; }
+.mcs-version-time { flex: none; width: 56px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mcs-version.is-current { border-color: var(--accent); background: var(--accent-soft); }
+.mcs-version.is-named { border-left: 3px solid var(--accent); }
+.mcs-version .mcs-doc-actions { flex: none; }
+.mcs-version-name { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
+.mcs-badge.mcs-badge-first { margin: 0 6px 0 0; }
+.mcs-collapsed { display: flex; align-items: center; gap: 6px; width: 100%; margin: 0; padding: 9px 12px; border: 1px dashed var(--border-strong); border-radius: 10px;
+  background: transparent; color: var(--text-2); font: inherit; font-size: .88rem; text-align: left; cursor: pointer; }
+.mcs-collapsed:hover { background: var(--surface-2); }
+.mcs-more { margin-top: 10px; }
+.mcs-field textarea { padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: .9rem; font-weight: 400; resize: vertical; }
+.mcs-save-version .mcs-field { margin: 10px 0; }
+.mcs-side.is-target { border-color: var(--accent); background: var(--accent-soft); }
+.mcs-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 14px; border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: 12px; background: var(--warn-bg); color: var(--text); font-size: .88rem; }
+.mcs-preview > .mcs-icon { color: var(--warn); }
+.mcs-preview-text { flex: 1 1 260px; min-width: 0; }
+@media (max-width: 560px) {
+  .mcs-version { flex-wrap: wrap; }
+  .mcs-version .mcs-doc-actions { width: 100%; }
+}

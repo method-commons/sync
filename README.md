@@ -57,11 +57,13 @@ const [core, syncUi] = await Promise.all([
 ]);
 const controller = new core.SyncController({ adapter, engine: { messages: syncUi.textsFor(lang).commit } });
 const ui = syncUi.createSyncUI({ controller, lang, nouns: { one: 'Matrix', many: 'Matrizen', list: 'Meine Matrizen' },
-  currentId: () => docId, onOpenDoc, toast });
+  currentId: () => docId, onOpenDoc, toast, onPreview });   // onPreview(p | null): früheren Stand nur lesend zeigen
 controller.onRemoteChange(id => reloadDoc(id));
 render(h(ui.StatusChip), slotInHeader);   // Statusanzeige; in der Dokumentliste: ui.DocState, ui.RemoteOnly
+render(h(ui.PreviewBar), slotAboveContent); // Leiste beim Ansehen eines früheren Stands
 controller.start();
-// nach dem Speichern: controller.changed(id) · nach dem Löschen: controller.removed(id) · Menü: ui.openStorage()
+// nach dem Speichern: controller.changed(id) · nach dem Löschen: controller.removed(id)
+// Menü: ui.openStorage(), ui.openVersions(id) · vor einem Dokumentwechsel: ui.endPreview()
 ```
 
 - `adapter`: siehe [KONZEPT – Was jede App liefert](docs/KONZEPT.md#was-jede-app-liefert); Kennung `app` = Name des App-Repos.
