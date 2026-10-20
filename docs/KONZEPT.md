@@ -19,7 +19,7 @@ nur aufgegriffen, wo sich durch „alle Apps“ oder „GitHub als Ablage“ etw
 | Morphologische Matrix | `morphologische-matrix:doc:<id>` | `{ savedAt, data }` | 8 |
 | 2-Achsen-Matrix | `two-axis:matrix:<id>` | Dokument direkt | 1 |
 | RACI-Matrix | `raci:matrix:<id>` | Dokument direkt | 1 |
-| 5 Warum | `five-why:analysis:<id>` | Dokument direkt | 1 |
+| 5 Why | `five-why:analysis:<id>` | Dokument direkt | 1 |
 | User Stories | `user-stories:project:<id>` | Dokument direkt | 1 |
 
 Daraus folgt:
@@ -56,7 +56,7 @@ method-commons/sync
 
 ```js
 SyncAdapter = {
-  app: 'raci',                      // feste App-Kennung, auch Ordnername in der Ablage
+  app: 'raci-app',                  // feste App-Kennung = Name des Repos bzw. Teil der Pages-Adresse, auch Ordnername in der Ablage
   schemaVersion: 1,                 // Model.SCHEMA_VERSION
   list(),                           // lokale Dokumente: [{ id, title, savedAt }]
   read(id),                         // { savedAt, data } | null
@@ -94,11 +94,11 @@ GitHub-API direkt aus dem Browser.
 
 ```
 meine-methoden/
-├── morphologische-matrix/<id>.json
-├── two-axis/<id>.json
-├── raci/<id>.json
-├── five-why/<id>.json
-└── user-stories/<id>.json
+├── morphological-matrix-app/<id>.json
+├── two-axis-matrix-app/<id>.json
+├── raci-app/<id>.json
+├── 5-why-app/<id>.json
+└── user-story-app/<id>.json
 ```
 
 - **Dateien** enthalten das Dokument wie beim Export (eingerückt, damit Unterschiede lesbar sind) und
@@ -246,7 +246,7 @@ Getroffen im Oktober 2026, jeweils wie empfohlen:
 2. **Erste Ablage: GitHub** als günstige Probe für den Kern, Supabase danach.
 3. **Anmeldung bei GitHub:** zunächst **fine-grained Token**; Tausch-Dienst später.
 4. **Erste App für Stufe 1:** **Morphologische Matrix**.
-5. **Ein Repo für alle Apps** in der Ablage (Ordner je App).
+5. **Ein Repo für alle Apps** in der Ablage; **Ordner je App = Name des App-Repos** (`morphological-matrix-app/` …) – sprachunabhängig und eindeutig.
 6. **Übersichtsseite** unter `method-commons.github.io`: **später** (Stufe 4).
 7. **Gemeinsame Dialoge** aus `ui/`, Texte über die Apps ergänzbar.
 
@@ -263,11 +263,20 @@ Alle fünf Apps speichern jedes Dokument im localStorage als `{ savedAt, data }`
 | `listDocs()` | alle Einträge, zuletzt gespeicherte zuerst |
 | `docIdFromKey(key)` | ID zu einem Speicherschlüssel (für `storage`-Ereignisse) |
 
-In RACI-Matrix, 2-Achsen-Matrix, 5 Warum und User Stories werden ältere Einträge ohne Hülle weiter
+In RACI-Matrix, 2-Achsen-Matrix, 5 Why und User Stories werden ältere Einträge ohne Hülle weiter
 gelesen und beim nächsten Speichern umgestellt; `load`, `save` und `all` bleiben dort als Kurzformen
 für die Oberfläche.
 
-Nächster Schritt: Mockups in der Morphologischen Matrix (Menü „Ablage …“, Token-Assistent,
-Statusanzeige, Konfliktdialog) – Entwurf mit offenen Entscheidungen in
-[morphological-matrix-app/docs/mockups/ablage](https://github.com/method-commons/morphological-matrix-app/tree/main/docs/mockups/ablage);
-umsetzen erst nach „Ja“, danach Stufe 1.
+## Mockups der Stufe 1
+
+[morphological-matrix-app/docs/mockups/ablage](https://github.com/method-commons/morphological-matrix-app/tree/main/docs/mockups/ablage):
+Menü „Ablage …“, Einrichtung mit GitHub-Repo und Token, Statusanzeige, Konfliktdialog, „Meine Matrizen“
+mit Zustand je Dokument. Entschieden wie empfohlen, dazu:
+
+- Statusanzeige in der Kopfzeile neben „Datei“ (mobil nur Symbol).
+- Automatische Versionen (= Commits) höchstens alle 5 Minuten je Dokument.
+- Konfliktdialog öffnet beim Klick auf die Anzeige; vor dem nächsten Übertragen des Dokuments muss entschieden sein.
+- Beim Einrichten alle Dokumente zum Hochladen vorausgewählt, unveränderte Beispiele nicht.
+- „Nur in der Ablage“ als Abschnitt der Dokumentliste der App.
+- Dateiname `<Repo-Name der App>/<id>.json`.
+- Gerätename automatisch aus dem Browser, im Dialog „Ablage“ änderbar.

@@ -7,7 +7,7 @@ Die Methoden-Apps von method-commons laufen ohne Server und speichern nur im Bro
 - [Morphologische Matrix](https://github.com/method-commons/morphological-matrix-app)
 - [2-Achsen-Matrix](https://github.com/method-commons/two-axis-matrix-app)
 - [RACI-Matrix](https://github.com/method-commons/raci-app)
-- [5 Warum](https://github.com/method-commons/5-why-app)
+- [5 Why](https://github.com/method-commons/5-why-app)
 - [User Stories](https://github.com/method-commons/user-story-app)
 
 Dieses Repo soll die **gemeinsame, optionale Speicherung außerhalb des Browsers** aufnehmen: Dokumente auf
