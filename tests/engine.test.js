@@ -42,6 +42,19 @@ describe('SyncEngine', () => {
     expect((await store.get('test-app', 'd1'))?.record.data).toEqual({ title: 'Eins', n: 3 });
   });
 
+  it('überträgt nicht, wenn nur neu gespeichert wurde, ohne den Inhalt zu ändern', async () => {
+    const { store, a, clock } = setup();
+    a.save('d1', { title: 'Eins', n: 1 });
+    await a.engine.run();
+    a.save('d1', { title: 'Eins', n: 1 });
+    expect(a.engine.state.docs.d1).toBe('pending');
+    await a.engine.run();
+    expect(a.engine.state.docs.d1).toBe('ok');
+    clock.t += 10 * MIN;
+    await a.engine.run();
+    expect(store.log).toHaveLength(1);
+  });
+
   it('übernimmt Änderungen eines anderen Geräts und meldet sie der App', async () => {
     const { a, b } = setup();
     a.save('d1', { title: 'Eins', n: 1 });

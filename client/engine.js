@@ -40,6 +40,7 @@ import { AuthError, ConflictError, OfflineError } from './store.js';
  * @typedef {object} DocMeta Zuletzt abgeglichener Stand eines Dokuments
  * @property {string | null} [head] Stand in der Ablage; null = noch nie übertragen
  * @property {number} savedAt `savedAt` des Browser-Stands beim letzten Abgleich
+ * @property {string} [hash] Fingerabdruck des Inhalts beim letzten Abgleich (gleicher Inhalt = nicht geändert)
  * @property {number} [pushedAt] letzte Übertragung (für die Drosselung)
  * @property {string} [title]
  * @property {boolean} [localOnly] bewusst nur im Browser
@@ -72,6 +73,21 @@ import { AuthError, ConflictError, OfflineError } from './store.js';
 
 export const META_PREFIX = 'method-commons:sync:docs:';
 const MINUTE = 60_000;
+
+/**
+ * Fingerabdruck eines Dokuments (FNV-1a über das JSON). Apps speichern ein Dokument z. B. beim
+ * Öffnen erneut, ohne es zu ändern – das soll keine Übertragung auslösen.
+ * @param {unknown} data
+ */
+export function fingerprint(data) {
+  const text = JSON.stringify(data) ?? '';
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+  return `${text.length.toString(36)}-${(h >>> 0).toString(36)}`;
+}
+
+/** Im Browser seit dem letzten Abgleich geändert? @param {LocalDoc} local @param {DocMeta} m */
+const isDirty = (local, m) => local.savedAt > m.savedAt && (m.hash == null || fingerprint(local.data) !== m.hash);
 
 /** @param {unknown} e */
 const errorKind = e => (e instanceof AuthError ? 'auth' : e instanceof OfflineError ? 'offline' : 'error');
@@ -311,7 +327,12 @@ export class SyncEngine {
         this.saveMeta(meta);
         continue;
       }
-      const dirty = local.savedAt > m.savedAt;
+      const dirty = isDirty(local, m);
+      if (!dirty && local.savedAt > m.savedAt) {
+        // nur neu gespeichert, Inhalt gleich: Zeitpunkt nachziehen
+        meta[id] = { ...m, savedAt: local.savedAt };
+        this.saveMeta(meta);
+      }
       const changedRemote = head !== (m.head ?? null);
       if (changedRemote && dirty) {
         meta[id] = { ...m, conflict: head };
@@ -352,7 +373,7 @@ export class SyncEngine {
     this.setState({ docs, status: 'busy' });
     try {
       const head = await store.put(adapter.app, local.id, record, baseHead, this.messages.save(title, this.device));
-      meta[local.id] = { head, savedAt: local.savedAt, pushedAt: this.now(), title };
+      meta[local.id] = { head, savedAt: local.savedAt, pushedAt: this.now(), title, hash: fingerprint(local.data) };
     } catch (e) {
       if (!(e instanceof ConflictError)) throw e;
       // Inzwischen anders in der Ablage: Konflikt merken. Datei verschwunden: beim nächsten Mal neu anlegen.
@@ -377,7 +398,7 @@ export class SyncEngine {
     try { data = adapter.normalize(got.record.data); } catch (e) { return 'invalid'; }
     const savedAt = Number(got.record.savedAt) || this.now();
     if (!adapter.write(id, data, savedAt)) return 'invalid';
-    meta[id] = { head: got.head, savedAt, pushedAt: meta[id]?.pushedAt, title: adapter.title(data) };
+    meta[id] = { head: got.head, savedAt, pushedAt: meta[id]?.pushedAt, title: adapter.title(data), hash: fingerprint(data) };
     this.saveMeta(meta);
     pulled.push(id);
     return 'ok';
@@ -422,7 +443,7 @@ export class SyncEngine {
       docs[local.id] = !m ? 'pending'
         : m.localOnly ? 'local'
           : m.conflict !== undefined ? 'conflict'
-            : local.savedAt > m.savedAt ? 'pending' : 'ok';
+            : isDirty(local, m) ? 'pending' : 'ok';
     }
     const conflicts = Object.keys(docs).filter(id => docs[id] === 'conflict');
     this.setState({ docs, conflicts, status: this.summarize(docs), error: newer ? 'newer-schema' : null });

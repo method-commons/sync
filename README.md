@@ -1,6 +1,6 @@
 # sync – gemeinsamer Sync-Kern der Methoden-Apps
 
-Stand: Oktober 2026 · **Konzept** · Entscheidungen getroffen · Stufe 0 (einheitliche Speicherschicht in allen Apps) umgesetzt
+Stand: Oktober 2026 · Stufe 0 (einheitliche Speicherschicht) und **Stufe 1** (Kern, GitHub-Ablage, Oberfläche; eingebaut in die Morphologische Matrix) umgesetzt
 
 Die Methoden-Apps von method-commons laufen ohne Server und speichern nur im Browser:
 
@@ -17,7 +17,12 @@ allen Geräten, Versionen, später Teilen im Team. Die Apps bleiben ohne Konto i
 
 | Datei | Inhalt |
 |---|---|
-| [docs/KONZEPT.md](docs/KONZEPT.md) | Gesamtkonzept: Aufbau, Schnittstelle, Ablagen (GitHub, Supabase), Sync, Versionen, Sicherheit, Stufen, offene Entscheidungen |
+| [docs/KONZEPT.md](docs/KONZEPT.md) | Gesamtkonzept: Aufbau, Schnittstelle, Ablagen (GitHub, Supabase), Sync, Versionen, Sicherheit, Stufen, Entscheidungen, Stand |
+| `client/engine.js` | Abgleich: lokal zuerst, Drosselung (5 Min. je Dokument), Konflikte, Löschen, mehrere Tabs |
+| `client/controller.js` | je App: Einstellungen, Start, Einrichten, Token erneuern, Gerätename, Trennen, Ereignisse anderer Tabs |
+| `client/config.js` | gemeinsame Einstellungen aller Apps (localStorage), Gerätename – ohne Importe |
+| `client/github.js`, `client/memory.js` | Ablagen: GitHub-Repo (Contents-API), Speicher (Tests) |
+| `ui/index.js`, `ui/texts.js`, `ui/styles.css` | Oberfläche (Preact ohne JSX): Statusanzeige, Einrichtung, Ablage, Konflikt, Zustand je Dokument |
 
 Grundlage ist das Backend-Konzept der Morphologischen Matrix
 ([docs/BACKEND.md](https://github.com/method-commons/morphological-matrix-app/blob/main/docs/BACKEND.md)).
@@ -32,6 +37,44 @@ Dieses Konzept verallgemeinert es auf alle Apps und ergänzt GitHub als Ablage.
   Schema-Versionen einer App ändern an der Ablage nichts.
 - **Austauschbare Ablagen:** zuerst ein **GitHub-Repo** der Person bzw. des Teams, danach ein
   **Supabase-Projekt**; ein vom Maintainer betriebener Server erst bei Nachfrage.
+
+## Einbinden in eine App
+
+```sh
+npm install github:method-commons/sync#v0.1.0
+```
+
+```js
+// fest eingebunden – klein, ohne Importe
+import { CONFIG_KEY, hasConfig } from '@method-commons/sync/config';
+
+// erst bei Bedarf (eingerichtet oder „Ablage …“ gewählt)
+const [core, syncUi] = await Promise.all([
+  import('@method-commons/sync'), import('@method-commons/sync/ui'), import('@method-commons/sync/ui/styles.css'),
+]);
+const controller = new core.SyncController({ adapter, engine: { messages: syncUi.textsFor(lang).commit } });
+const ui = syncUi.createSyncUI({ controller, lang, nouns: { one: 'Matrix', many: 'Matrizen', list: 'Meine Matrizen' },
+  currentId: () => docId, onOpenDoc, toast });
+controller.onRemoteChange(id => reloadDoc(id));
+render(h(ui.StatusChip), slotInHeader);   // Statusanzeige; in der Dokumentliste: ui.DocState, ui.RemoteOnly
+controller.start();
+// nach dem Speichern: controller.changed(id) · nach dem Löschen: controller.removed(id) · Menü: ui.openStorage()
+```
+
+- `adapter`: siehe [KONZEPT – Was jede App liefert](docs/KONZEPT.md#was-jede-app-liefert); Kennung `app` = Name des App-Repos.
+- In `vite.config.js`: `resolve: { dedupe: ['preact'] }` (eine Preact-Instanz für App und Oberfläche).
+- Vorlage: `js/ui/sync.jsx` der [Morphologischen Matrix](https://github.com/method-commons/morphological-matrix-app).
+
+## Entwicklung
+
+```sh
+npm ci
+npm test          # Lint, Typprüfung, Unit-Tests mit Mindestabdeckung
+```
+
+`.npmrc` setzt `legacy-peer-deps` (npm 10 scheitert sonst an optionalen Peer-Abhängigkeiten von Vitest).
+Eine neue Version: Tests grün, `version` in `package.json` erhöhen, Tag `vX.Y.Z` setzen und pushen; die Apps
+heben ihre Abhängigkeit einzeln an.
 
 ## Lizenz
 

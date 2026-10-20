@@ -1,0 +1,209 @@
+/*
+ * Texte der gemeinsamen Oberfläche. Deutsch ist maßgeblich, Englisch hat dieselbe Struktur
+ * (geprüft in tests/ui-texts.test.js). Die Bezeichnung der Dokumente („Matrix“, „Analyse“ …)
+ * liefert die App (`nouns`).
+ */
+
+/** Namen der Methoden-Apps (Kennung = Name des Repos) für „Andere Apps“. */
+export const APP_NAMES = {
+  de: {
+    'morphological-matrix-app': 'Morphologische Matrix',
+    'two-axis-matrix-app': '2-Achsen-Matrix',
+    'raci-app': 'RACI-Matrix',
+    '5-why-app': '5 Why',
+    'user-story-app': 'User Stories',
+  },
+  en: {
+    'morphological-matrix-app': 'Morphological Matrix',
+    'two-axis-matrix-app': 'Two-Axis Matrix',
+    'raci-app': 'RACI Matrix',
+    '5-why-app': '5 Why',
+    'user-story-app': 'User Stories',
+  },
+};
+
+/** @typedef {{ one: string, many: string, list: string }} Nouns Dokument, Mehrzahl, Name der Liste („Meine Matrizen“) */
+
+export const TEXTS = {
+  de: {
+    menu: { storage: 'Ablage …', notSet: 'nicht eingerichtet' },
+    status: {
+      ok: 'In der Ablage', pending: 'Wird übertragen', busy: 'Wird übertragen', offline: 'Offline',
+      auth: 'Zugang prüfen', error: 'Fehler der Ablage', conflict: 'Konflikt', idle: 'Ablage',
+    },
+    statusHint: {
+      ok: 'alles übertragen', pending: 'Änderungen werden gebündelt übertragen', busy: 'wird gerade übertragen',
+      offline: 'im Browser gespeichert, wird nachgeholt', auth: 'Token abgelaufen oder ohne Zugriff – im Dialog „Ablage“ erneuern',
+      error: 'Ablage nicht erreichbar – Einstellungen prüfen', conflict: 'auf einem anderen Gerät geändert – Klick öffnet die Auswahl', idle: '',
+    },
+    pop: {
+      heading: 'Ablage · GitHub', repo: 'Repo', thisDoc: /** @param {Nouns} n */ n => `Diese ${n.one}`, versions: 'Versionen',
+      versionsText: 'automatisch höchstens alle 5 Min.', others: /** @param {Nouns} n */ n => `Andere ${n.many}`,
+      othersAll: 'alle übertragen', othersPending: /** @param {number} k */ k => `${k} noch zu übertragen`,
+      pushNow: 'Jetzt übertragen', storage: 'Ablage …', lastSync: /** @param {string} t */ t => `zuletzt abgeglichen ${t}`,
+    },
+    doc: { ok: 'in der Ablage', pending: 'wird übertragen', busy: 'wird übertragen', local: 'nur im Browser', conflict: 'Konflikt', newer: 'neuere Version' },
+    upload: 'Hochladen', solve: 'Konflikt lösen', remoteOnly: 'Nur in der Ablage', open: 'Öffnen',
+    remoteMeta: /** @param {string} date @param {string} device @param {string} summary */ (date, device, summary) => [`gespeichert ${date}`, device, summary].filter(Boolean).join(' · '),
+    setup: {
+      title: 'Ablage einrichten', close: 'Schließen',
+      hint: /** @param {Nouns} n */ n => `${n.many} zusätzlich außerhalb dieses Browsers speichern – auf allen Geräten verfügbar, mit Versionen. Ohne Ablage bleibt alles wie bisher.`,
+      steps: ['Ablage wählen', 'Verbinden', 'Prüfen & hochladen'],
+      github: 'GitHub-Repo', githubBadge: 'zuerst verfügbar',
+      githubDesc: /** @param {Nouns} n */ n => `Ein privates Repo der Person oder des Teams. Jede ${n.one} ist eine Datei, jeder übertragene Stand ein Commit – Versionen und Vergleich auf GitHub inklusive.`,
+      githubMeta: 'Braucht ein GitHub-Konto und ein persönliches Token · Daten bei GitHub (USA)',
+      supabase: 'Supabase-Projekt', supabaseBadge: 'später',
+      supabaseDesc: 'Eigenes Projekt mit Datenbank – auch ohne GitHub, im EU-Rechenzentrum oder auf eigenem Server. Echtes Löschen, Teilen mit Rechten.',
+      supabaseMeta: 'Einrichtung mit einem SQL-Skript zum Kopieren',
+      allApps: 'Gilt für alle Methoden-Apps in diesem Browser:',
+      allAppsText: 'Morphologische Matrix, 2-Achsen-Matrix, RACI-Matrix, 5 Why und User Stories nutzen dieselbe Ablage – einmal einrichten genügt. Gearbeitet wird weiter im Browser; die Ablage wird im Hintergrund abgeglichen, auch nach einer Pause ohne Netz.',
+      repoTitle: 'Privates Repo anlegen', repoText: 'Ein leeres Repo genügt – für alle Apps zusammen; jede App legt ihren eigenen Ordner an.',
+      repoLink: 'Neues Repo auf GitHub', repoLabel: 'Repo', repoHelp: 'Besitzer/Name, z. B. aus der Adresse github.com/besitzer/name',
+      tokenTitle: 'Persönliches Token erstellen', tokenText: 'Auf GitHub unter „Fine-grained tokens“:',
+      tokenRules: [
+        ['Repository access: ', 'Only select repositories', ' → nur dieses Repo'],
+        ['Permissions: ', 'Contents – Read and write', ' (sonst nichts)'],
+        ['Expiration: ', 'z. B. 90 Tage', ' – danach im Dialog „Ablage“ erneuern'],
+      ],
+      tokenLink: 'Token-Seite auf GitHub', tokenLabel: 'Token',
+      tokenNote: 'Das Token bleibt nur in diesem Browser und gilt für alle Methoden-Apps unter dieser Adresse. Es erlaubt nur Lesen und Schreiben in diesem einen Repo. „Ablage trennen“ löscht es.',
+      back: 'Zurück', cancel: 'Abbrechen', next: 'Weiter', connect: 'Verbinden & prüfen', checking: 'Wird geprüft …',
+      checkRepo: /** @param {string} r */ r => `Repo ${r} erreichbar`, private: 'privat', public: 'öffentlich – besser privat',
+      checkWrite: 'Schreibrecht vorhanden', checkWriteHint: 'Kennzeichnung angelegt', checkExisting: 'Ablage bereits eingerichtet', checkExistingHint: 'von einem anderen Gerät',
+      checkExpiry: /** @param {string} d */ d => `Token gültig bis ${d}`, checkFolder: /** @param {string} f */ f => `Ordner ${f}/ wird beim ersten Speichern angelegt`,
+      uploadHeading: /** @param {Nouns} n */ n => `${n.many} aus diesem Browser hochladen`,
+      uploadNote: /** @param {Nouns} n */ n => `Nicht gewählte ${n.many} bleiben nur in diesem Browser; hochladen geht später unter „${n.list}“. Dokumente der anderen Apps werden dort beim nächsten Öffnen abgeglichen.`,
+      uploadButton: /** @param {number} k @param {Nouns} n */ (k, n) => (k ? `${k} ${k === 1 ? n.one : n.many} hochladen` : 'Fertig'),
+      errors: {
+        auth: 'Das Token wurde abgelehnt – abgelaufen, falsch kopiert oder ohne Zugriff auf dieses Repo.',
+        notFound: 'Repo nicht gefunden – Name prüfen; das Token muss Zugriff auf genau dieses Repo haben.',
+        offline: 'GitHub ist nicht erreichbar. Verbindung prüfen und erneut versuchen.',
+        format: 'Bitte als Besitzer/Name angeben, z. B. team/methoden.',
+        other: /** @param {string} m */ m => `Prüfung fehlgeschlagen: ${m}`,
+      },
+    },
+    storage: {
+      title: 'Ablage', kind: 'Ablage', repo: 'GitHub-Repo', onGitHub: 'Auf GitHub', token: 'Token',
+      expires: /** @param {string} d @param {number} days */ (d, days) => (days < 0 ? `abgelaufen am ${d}` : `gültig bis ${d} (noch ${days} ${days === 1 ? 'Tag' : 'Tage'})`),
+      expiresUnknown: 'Ablauf unbekannt', renew: 'Token erneuern', renewSave: 'Prüfen & speichern',
+      device: 'Gerät', deviceHelp: 'erscheint bei Konflikten und in den Commits',
+      thisApp: 'Diese App', otherApps: 'Andere Apps',
+      counts: /** @param {number} all @param {number} synced @param {number} remote @param {Nouns} n */ (all, synced, remote, n) =>
+        `${all} ${all === 1 ? n.one : n.many} im Browser, davon ${synced} in der Ablage${remote ? ` · ${remote} weitere nur in der Ablage` : ''}`,
+      none: 'noch keine', versions: 'Versionen', versionsText: 'jeder übertragene Stand ist ein Commit – automatisch höchstens alle 5 Minuten',
+      gitDelete: 'Löschen in Git:', gitDeleteText: /** @param {Nouns} n */ n => `Eine gelöschte ${n.one} verschwindet aus dem Repo, bleibt aber in dessen Historie. Endgültig löschen lässt sie sich nur auf GitHub (Repo löschen oder Historie bereinigen).`,
+      disconnect: 'Ablage trennen …', confirmDisconnect: 'Ablage in diesem Browser trennen? Das Token wird gelöscht; alle Dokumente bleiben im Browser und im Repo erhalten.',
+      syncNow: 'Jetzt abgleichen', done: 'Fertig',
+      problem: { auth: 'Der Zugang wurde abgelehnt – Token erneuern.', offline: 'GitHub ist gerade nicht erreichbar; Änderungen werden nachgeholt.', 'newer-schema': 'In der Ablage liegt ein Stand aus einer neueren Version der App – bitte die Seite neu laden.', error: 'Fehler der Ablage:' },
+    },
+    conflict: {
+      title: /** @param {string} t */ t => `„${t}“ wurde auch auf einem anderen Gerät geändert`,
+      base: /** @param {string} t */ t => `Beide Stände beruhen auf dem Stand von ${t}. Welcher soll gelten?`,
+      baseUnknown: 'Welcher Stand soll gelten?',
+      here: 'Auf diesem Gerät', there: 'In der Ablage', changed: /** @param {string} t */ t => `geändert ${t}`, missing: 'nicht mehr vorhanden',
+      both: 'Beide behalten', bothText: /** @param {string} t @param {Nouns} n */ (t, n) => `Der Stand aus der Ablage wird als eigene ${n.one} „${t}“ angelegt – zum Vergleichen und Übernehmen.`,
+      mine: 'Meine behalten', mineText: 'Dieser Stand wird übertragen. Der andere bleibt als Version im Repo erhalten.',
+      theirs: 'Ablage übernehmen', theirsText: 'Der Stand aus der Ablage ersetzt diesen. Dieser bleibt in der Historie des Repos, sofern er schon übertragen war.',
+      note: 'Kein automatisches Zusammenführen – nichts geht verloren.',
+      loading: 'Stände werden geladen …',
+    },
+    commit: {
+      save: /** @param {string} t @param {string} d */ (t, d) => `${t} (${d})`,
+      remove: /** @param {string} t @param {string} d */ (t, d) => `${t} entfernt (${d})`,
+    },
+    today: 'heute', copyLabel: /** @param {string} t @param {string} d */ (t, d) => `${t} (${d || 'Ablage'})`,
+  },
+  en: {
+    menu: { storage: 'Storage …', notSet: 'not set up' },
+    status: {
+      ok: 'In storage', pending: 'Uploading', busy: 'Uploading', offline: 'Offline',
+      auth: 'Check access', error: 'Storage error', conflict: 'Conflict', idle: 'Storage',
+    },
+    statusHint: {
+      ok: 'everything uploaded', pending: 'changes are uploaded in batches', busy: 'uploading now',
+      offline: 'saved in the browser, will catch up', auth: 'token expired or without access – renew it in the “Storage” dialog',
+      error: 'storage not reachable – check the settings', conflict: 'changed on another device – click to choose', idle: '',
+    },
+    pop: {
+      heading: 'Storage · GitHub', repo: 'Repo', thisDoc: /** @param {Nouns} n */ n => `This ${n.one}`, versions: 'Versions',
+      versionsText: 'automatically at most every 5 min.', others: /** @param {Nouns} n */ n => `Other ${n.many}`,
+      othersAll: 'all uploaded', othersPending: /** @param {number} k */ k => `${k} still to upload`,
+      pushNow: 'Upload now', storage: 'Storage …', lastSync: /** @param {string} t */ t => `last synced ${t}`,
+    },
+    doc: { ok: 'in storage', pending: 'uploading', busy: 'uploading', local: 'browser only', conflict: 'conflict', newer: 'newer version' },
+    upload: 'Upload', solve: 'Resolve conflict', remoteOnly: 'Only in storage', open: 'Open',
+    remoteMeta: /** @param {string} date @param {string} device @param {string} summary */ (date, device, summary) => [`saved ${date}`, device, summary].filter(Boolean).join(' · '),
+    setup: {
+      title: 'Set up storage', close: 'Close',
+      hint: /** @param {Nouns} n */ n => `Also store ${n.many} outside this browser – available on all devices, with versions. Without storage everything stays as it is.`,
+      steps: ['Choose storage', 'Connect', 'Check & upload'],
+      github: 'GitHub repository', githubBadge: 'available first',
+      githubDesc: /** @param {Nouns} n */ n => `A private repository of a person or team. Each ${n.one} is a file, each uploaded state a commit – versions and comparison on GitHub included.`,
+      githubMeta: 'Needs a GitHub account and a personal token · data at GitHub (USA)',
+      supabase: 'Supabase project', supabaseBadge: 'later',
+      supabaseDesc: 'Own project with a database – also without GitHub, in an EU data centre or on your own server. Real deletion, sharing with permissions.',
+      supabaseMeta: 'Set up with an SQL script to copy',
+      allApps: 'Applies to all method apps in this browser:',
+      allAppsText: 'Morphological Matrix, Two-Axis Matrix, RACI Matrix, 5 Why and User Stories use the same storage – set it up once. You keep working in the browser; the storage is synced in the background, also after a pause without network.',
+      repoTitle: 'Create a private repository', repoText: 'An empty repository is enough – for all apps together; each app creates its own folder.',
+      repoLink: 'New repository on GitHub', repoLabel: 'Repository', repoHelp: 'owner/name, e.g. from the address github.com/owner/name',
+      tokenTitle: 'Create a personal token', tokenText: 'On GitHub under “Fine-grained tokens”:',
+      tokenRules: [
+        ['Repository access: ', 'Only select repositories', ' → just this repository'],
+        ['Permissions: ', 'Contents – Read and write', ' (nothing else)'],
+        ['Expiration: ', 'e.g. 90 days', ' – then renew it in the “Storage” dialog'],
+      ],
+      tokenLink: 'Token page on GitHub', tokenLabel: 'Token',
+      tokenNote: 'The token stays in this browser only and applies to all method apps at this address. It only allows reading and writing this one repository. “Disconnect storage” deletes it.',
+      back: 'Back', cancel: 'Cancel', next: 'Next', connect: 'Connect & check', checking: 'Checking …',
+      checkRepo: /** @param {string} r */ r => `Repository ${r} reachable`, private: 'private', public: 'public – private is better',
+      checkWrite: 'Write access confirmed', checkWriteHint: 'marker created', checkExisting: 'Storage already set up', checkExistingHint: 'from another device',
+      checkExpiry: /** @param {string} d */ d => `Token valid until ${d}`, checkFolder: /** @param {string} f */ f => `Folder ${f}/ is created on first upload`,
+      uploadHeading: /** @param {Nouns} n */ n => `Upload ${n.many} from this browser`,
+      uploadNote: /** @param {Nouns} n */ n => `Unselected ${n.many} stay in this browser only; you can upload them later under “${n.list}”. Documents of the other apps are synced there the next time you open them.`,
+      uploadButton: /** @param {number} k @param {Nouns} n */ (k, n) => (k ? `Upload ${k} ${k === 1 ? n.one : n.many}` : 'Done'),
+      errors: {
+        auth: 'The token was rejected – expired, copied incorrectly or without access to this repository.',
+        notFound: 'Repository not found – check the name; the token needs access to exactly this repository.',
+        offline: 'GitHub is not reachable. Check the connection and try again.',
+        format: 'Please enter owner/name, e.g. team/methods.',
+        other: /** @param {string} m */ m => `Check failed: ${m}`,
+      },
+    },
+    storage: {
+      title: 'Storage', kind: 'Storage', repo: 'GitHub repository', onGitHub: 'On GitHub', token: 'Token',
+      expires: /** @param {string} d @param {number} days */ (d, days) => (days < 0 ? `expired on ${d}` : `valid until ${d} (${days} ${days === 1 ? 'day' : 'days'} left)`),
+      expiresUnknown: 'expiry unknown', renew: 'Renew token', renewSave: 'Check & save',
+      device: 'Device', deviceHelp: 'shown in conflicts and in the commits',
+      thisApp: 'This app', otherApps: 'Other apps',
+      counts: /** @param {number} all @param {number} synced @param {number} remote @param {Nouns} n */ (all, synced, remote, n) =>
+        `${all} ${all === 1 ? n.one : n.many} in the browser, ${synced} of them in storage${remote ? ` · ${remote} more only in storage` : ''}`,
+      none: 'none yet', versions: 'Versions', versionsText: 'each uploaded state is a commit – automatically at most every 5 minutes',
+      gitDelete: 'Deleting in Git:', gitDeleteText: /** @param {Nouns} n */ n => `A deleted ${n.one} disappears from the repository but stays in its history. It can only be deleted for good on GitHub (delete the repository or clean its history).`,
+      disconnect: 'Disconnect storage …', confirmDisconnect: 'Disconnect the storage in this browser? The token is deleted; all documents stay in the browser and in the repository.',
+      syncNow: 'Sync now', done: 'Done',
+      problem: { auth: 'Access was denied – renew the token.', offline: 'GitHub is not reachable right now; changes will catch up.', 'newer-schema': 'The storage holds a state from a newer version of the app – please reload the page.', error: 'Storage error:' },
+    },
+    conflict: {
+      title: /** @param {string} t */ t => `“${t}” was also changed on another device`,
+      base: /** @param {string} t */ t => `Both states are based on the state of ${t}. Which one should apply?`,
+      baseUnknown: 'Which state should apply?',
+      here: 'On this device', there: 'In storage', changed: /** @param {string} t */ t => `changed ${t}`, missing: 'no longer there',
+      both: 'Keep both', bothText: /** @param {string} t @param {Nouns} n */ (t, n) => `The state from storage is created as a separate ${n.one} “${t}” – to compare and take over.`,
+      mine: 'Keep mine', mineText: 'This state is uploaded. The other one stays as a version in the repository.',
+      theirs: 'Use storage', theirsText: 'The state from storage replaces this one. This one stays in the repository history if it was uploaded before.',
+      note: 'No automatic merging – nothing gets lost.',
+      loading: 'Loading states …',
+    },
+    commit: {
+      save: /** @param {string} t @param {string} d */ (t, d) => `${t} (${d})`,
+      remove: /** @param {string} t @param {string} d */ (t, d) => `${t} removed (${d})`,
+    },
+    today: 'today', copyLabel: /** @param {string} t @param {string} d */ (t, d) => `${t} (${d || 'storage'})`,
+  },
+};
+
+/** @typedef {typeof TEXTS.de} SyncTexts */
+
+/** @param {string} lang @returns {SyncTexts} */
+export const textsFor = lang => /** @type {SyncTexts} */ (TEXTS[/** @type {'de' | 'en'} */ (lang)] ?? TEXTS.de);

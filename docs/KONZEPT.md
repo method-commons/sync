@@ -1,6 +1,6 @@
 # Konzept: gemeinsame Ablage für alle Methoden-Apps
 
-Stand: Oktober 2026 · **Konzept** · Entscheidungen getroffen (am Ende) · Stufe 0 umgesetzt.
+Stand: Oktober 2026 · Entscheidungen getroffen (am Ende) · Stufe 0 umgesetzt · **Stufe 1 umgesetzt** (Kern und Morphologische Matrix).
 
 Grundlage: [BACKEND.md der Morphologischen Matrix](https://github.com/method-commons/morphological-matrix-app/blob/main/docs/BACKEND.md).
 Dort beschriebene Punkte (Anmeldelink, Recht, Grenzen gegen Missbrauch …) gelten weiter und werden hier
@@ -35,16 +35,16 @@ Daraus folgt:
 
 ```
 method-commons/sync
-├── client/      Sync-Kern: lokal zuerst, Bündeln, optimistische Sperre, Konflikte,
-│                mehrere Tabs, Versionen drosseln und ausdünnen
-├── adapters/    Ablagen mit gleicher Schnittstelle: memory (Tests), github, supabase
-├── backend/     nur für Supabase: SQL-Migrationen, Zugriffsregeln, Einrichtungs- und Update-Skripte
-└── ui/          gemeinsame Bausteine (Preact): Statusanzeige, Ablage-/Konto-Dialog,
-                 Versionen-Dialog, Konfliktdialog, Einrichtungsassistent; Texte de/en
+├── client/      Sync-Kern ohne DOM: engine.js (lokal zuerst, Drosselung, Konflikte, mehrere Tabs),
+│                controller.js (Einstellungen, Start, Trennen), config.js (gemeinsame Einstellungen),
+│                Ablagen mit gleicher Schnittstelle: memory.js (Tests), github.js; später supabase
+├── backend/     (Stufe 3) nur für Supabase: SQL-Migrationen, Zugriffsregeln, Einrichtungs- und Update-Skripte
+└── ui/          gemeinsame Bausteine (Preact, ohne JSX): Statusanzeige, Einrichtung, Ablage,
+                 Konflikt, Zustand je Dokument, „Nur in der Ablage“; Texte de/en, styles.css
 ```
 
 - **Einbindung als Git-Abhängigkeit** mit festem Tag, ohne npm-Veröffentlichung:
-  `"@method-commons/sync": "github:method-commons/sync#v1.0.0"`. Jede App hebt die Version einzeln an.
+  `"@method-commons/sync": "github:method-commons/sync#v0.1.0"`. Jede App hebt die Version einzeln an.
 - **Nachladen:** Der Kern wird erst geladen, wenn eine Ablage eingerichtet ist. Ohne Ablage bleibt das
   Bundle wie heute.
 - **Gleiche Technik wie die Apps:** Vite, Preact, `@preact/signals`; Logik ohne DOM mit Typprüfung und
@@ -55,34 +55,37 @@ method-commons/sync
 ### Was jede App liefert
 
 ```js
-SyncAdapter = {
+AppAdapter = {
   app: 'raci-app',                  // feste App-Kennung = Name des Repos bzw. Teil der Pages-Adresse, auch Ordnername in der Ablage
   schemaVersion: 1,                 // Model.SCHEMA_VERSION
-  list(),                           // lokale Dokumente: [{ id, title, savedAt }]
-  read(id),                         // { savedAt, data } | null
-  write(id, data, savedAt),         // lokal speichern
-  remove(id),
+  list(),                           // Store.listDocs(): [{ id, savedAt, data }]
+  read(id),                         // Store.readDoc(id): { id, savedAt, data } | null
+  write(id, data, savedAt),         // Store.writeDoc(…)
   normalize(raw),                   // Model.normalize – Prüfung bleibt in der App
-  title(data),                      // Anzeigename für Listen und Versionen
+  title(data), summary(data),       // Anzeigename und Kennzahlen für Listen und Konflikte
+  duplicate(data, label),           // Kopie mit neuer ID für „Beide behalten“
 }
 ```
 
-Die App ruft nach jedem eigenen Speichern `sync.changed(id)` auf und reagiert auf `sync.onRemoteChange(id)`
-(Dokument neu laden). Mehr weiß die App vom Sync nicht.
+Die App ruft nach jedem eigenen Speichern `changed(id)` und nach dem Löschen `removed(id)` auf und
+reagiert auf `onRemoteChange(id)` (Dokument neu laden). Mehr weiß die App vom Sync nicht.
+Einbinden: siehe [README](../README.md#einbinden-in-eine-app).
 
 ### Was jede Ablage bietet
 
 ```js
-Store = {
-  connect(config), status(),                 // erreichbar, angemeldet, pausiert, Schema passt?
-  list(app),                                 // [{ id, title, head, updatedAt }]
-  get(app, id),                              // { data, head }
-  put(app, id, data, baseHead),              // neuer head – oder Fehler „Konflikt“
-  remove(app, id, baseHead),
-  versions(app, id), getVersion(app, id, v),
-  saveVersion(app, id, name),                // benannter Stand
+RemoteStore = {
+  check(),                                   // erreichbar, privat, Kennzeichnung angelegt, Ablauf des Zugangs
+  list(app),                                 // [{ id, head }]
+  get(app, id),                              // { record: { app, schemaVersion, savedAt, device, data }, head } | null
+  put(app, id, record, baseHead, message),   // neuer head – oder ConflictError
+  remove(app, id, baseHead, message),
+  // ab Stufe 2: versions(app, id), getVersion(app, id, v), saveVersion(app, id, name)
 }
 ```
+
+Fehlerarten: `ConflictError`, `AuthError` (Token abgelaufen oder ohne Zugriff), `OfflineError` (Netz,
+Grenze der Anfragen, Serverfehler), `SetupError` (Repo nicht gefunden, falsches Format).
 
 `head` ist die Kennung des Stands, auf dem eine Änderung beruht: bei Supabase eine laufende Nummer, bei
 GitHub der `sha` der Datei.
@@ -232,7 +235,7 @@ Wie in BACKEND.md, ergänzt um:
 | Stufe | Inhalt | Aufwand |
 |---|---|---|
 | 0 | Speicherschicht der vier jüngeren Apps angleichen (`{ savedAt, data }`, gleiche Funktionen) – lohnt sich auch ohne Sync | klein · **umgesetzt** |
-| 1 | Kern mit `memory`- und GitHub-Adapter, Token-Assistent, Statusanzeige, Konfliktdialog; zuerst in einer App | groß |
+| 1 | Kern mit `memory`- und GitHub-Adapter, Token-Assistent, Statusanzeige, Konfliktdialog; zuerst in einer App | groß · **umgesetzt** (Morphologische Matrix) |
 | 2 | Versionen (automatisch, benannt, wiederherstellen); Einbau in alle Apps | mittel |
 | 3 | Supabase-Adapter mit Einrichtungsassistent, Prüfung und Team-Einladungslink | groß |
 | 4 | Versionen vergleichen, Übersichtsseite aller Dokumente | mittel |
@@ -280,3 +283,37 @@ mit Zustand je Dokument. Entschieden wie empfohlen, dazu:
 - „Nur in der Ablage“ als Abschnitt der Dokumentliste der App.
 - Dateiname `<Repo-Name der App>/<id>.json`.
 - Gerätename automatisch aus dem Browser, im Dialog „Ablage“ änderbar.
+
+## Stand der Stufe 1
+
+Umgesetzt in diesem Repo (Version `v0.1.0`) und eingebaut in die Morphologische Matrix:
+
+- **Kern** (`client/`): Abgleich lokal zuerst; neue Dokumente sofort, weitere Änderungen je Dokument
+  höchstens alle 5 Minuten (sofort bei „Jetzt übertragen“, beim Verlassen der Seite und im Hintergrund);
+  Änderungen anderer Geräte werden übernommen, beidseitige Änderungen als Konflikt gemeldet. Mehrere Tabs
+  teilen die Merkliste (`method-commons:sync:docs:<app>`) und gleichen unter einer Web-Sperre ab.
+- **GitHub-Ablage:** Contents-API, ein Commit je Stand (Nachricht „Titel (Gerät)“), Konflikte über den `sha`;
+  beim ersten Verbinden legt die App `method-commons.json` im Repo an (Kennzeichnung, bestätigt das Schreibrecht).
+- **Oberfläche** (`ui/`): wie in den Mockups – Menü „Ablage …“, Einrichtung in drei Schritten,
+  Statusanzeige mit Details, Konfliktdialog, Zustand je Dokument und „Nur in der Ablage“ in der Liste,
+  Dialog „Ablage“ mit Token erneuern, Gerätename und Trennen.
+- **Nachladen:** Die App bindet fest nur `@method-commons/sync/config` ein (ohne Importe); Kern, Oberfläche
+  und Stile sind eigene Dateien und werden erst geladen, wenn eine Ablage eingerichtet ist oder „Ablage …“
+  gewählt wird.
+
+Abweichungen und Grenzen gegenüber Konzept und Mockups:
+
+- **Konfliktdialog** zeigt je Stand Zeitpunkt, Gerät und Kennzahlen, aber keine Liste der Änderungen
+  (braucht den Vergleich aus Stufe 4).
+- **„Versionen …“** fehlt im Menü noch (Stufe 2); die Versionen liegen aber schon als Commits im Repo.
+- **Ablauf des Tokens** steht nur da, wenn GitHub ihn im Antwortkopf mitliefert und der Browser ihn lesen
+  darf (CORS); sonst „Ablauf unbekannt“. Ein abgelaufenes Token zeigt die Statusanzeige als „Zugang prüfen“.
+- **Nur neu gespeichert, Inhalt gleich** (z. B. beim Öffnen eines Tabs): keine Übertragung – die Merkliste
+  vergleicht einen Fingerabdruck des Inhalts.
+- **Auf einem anderen Gerät gelöscht:** Das Dokument bleibt im Browser und gilt danach als „nur im Browser“.
+  Fehlt ein Dokument im Browser, ohne dass es gelöscht wurde, holt die Engine es aus der Ablage zurück.
+- **Neuere Version der App:** Stände mit höherer Schema-Version werden nicht übernommen („Seite neu laden“).
+- **Unveränderte Beispiele** erkennt die App durch Vergleich mit den mitgelieferten Beispieldaten.
+
+Nächste Schritte: Einbau in die übrigen vier Apps (Adapter wie in der Morphologischen Matrix) und Stufe 2
+(Versionen-Dialog: Liste, benannter Stand, Wiederherstellen).

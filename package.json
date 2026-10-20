@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./client/index.js",
+    "./config": "./client/config.js",
     "./ui": "./ui/index.js",
     "./ui/styles.css": "./ui/styles.css"
   },

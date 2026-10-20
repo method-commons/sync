@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CONFIG_KEY, TOKEN_KEY, clearConfig, createStore, defaultDevice, hasConfig, loadConfig, saveConfig } from '../client/config.js';
+import { CONFIG_KEY, TOKEN_KEY, clearConfig, defaultDevice, hasConfig, loadConfig, saveConfig } from '../client/config.js';
+import { createStore } from '../client/controller.js';
 import { GitHubStore } from '../client/github.js';
 import { memoryStorage } from './helpers.js';
 
