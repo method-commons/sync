@@ -44,7 +44,7 @@ method-commons/sync
 ```
 
 - **Einbindung als Git-Abhängigkeit** mit festem Tag, ohne npm-Veröffentlichung:
-  `"@method-commons/sync": "github:method-commons/sync#v0.1.0"`. Jede App hebt die Version einzeln an.
+  `"@method-commons/sync": "git+https://github.com/method-commons/sync.git#v0.1.0"` (Tag oder Commit-ID). Jede App hebt die Version einzeln an.
 - **Nachladen:** Der Kern wird erst geladen, wenn eine Ablage eingerichtet ist. Ohne Ablage bleibt das
   Bundle wie heute.
 - **Gleiche Technik wie die Apps:** Vite, Preact, `@preact/signals`; Logik ohne DOM mit Typprüfung und
@@ -286,7 +286,7 @@ mit Zustand je Dokument. Entschieden wie empfohlen, dazu:
 
 ## Stand der Stufe 1
 
-Umgesetzt in diesem Repo (Version `v0.1.0`) und eingebaut in die Morphologische Matrix:
+Umgesetzt in diesem Repo (Version `0.1.0`, Commit `b98f3c4`) und eingebaut in die Morphologische Matrix:
 
 - **Kern** (`client/`): Abgleich lokal zuerst; neue Dokumente sofort, weitere Änderungen je Dokument
   höchstens alle 5 Minuten (sofort bei „Jetzt übertragen“, beim Verlassen der Seite und im Hintergrund);

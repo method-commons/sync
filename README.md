@@ -41,8 +41,11 @@ Dieses Konzept verallgemeinert es auf alle Apps und ergänzt GitHub als Ablage.
 ## Einbinden in eine App
 
 ```sh
-npm install github:method-commons/sync#v0.1.0
+npm install git+https://github.com/method-commons/sync.git#v0.1.0   # Tag oder Commit-ID
 ```
+
+Über `git+https` statt `github:` – npm schriebe sonst `git+ssh` ins Lockfile, und die CI hat keinen
+SSH-Schlüssel. Prüfen: In `package-lock.json` muss `resolved` mit `git+https://` beginnen.
 
 ```js
 // fest eingebunden – klein, ohne Importe
