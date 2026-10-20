@@ -243,6 +243,43 @@ Wie in BACKEND.md, ergänzt um:
 | 3 | Supabase-Adapter mit Einrichtungsassistent, Prüfung und Team-Einladungslink | groß |
 | 4 | Versionen vergleichen, Übersichtsseite aller Dokumente | mittel |
 | 5 | optional: Teilen mit Rechten (Supabase), „Anmelden mit GitHub“ über Tausch-Dienst, betriebene Ablage | groß |
+| 6 | optional: [Rückmeldungen sammeln](#optional-rückmeldungen-sammeln-anonyme-umfragen) (anonyme Umfragen, z. B. Stimmung in der Retro); setzt Stufe 3 voraus | mittel |
+
+## Optional: Rückmeldungen sammeln (anonyme Umfragen)
+
+Idee (Oktober 2026, noch nicht entschieden): In Retrospektiven wird oft anonym die Stimmung im Team abgefragt
+(Stimmung 1–5, ROTI, Ampel, kurze Freitexte). Das wäre eine eigene kleine Methoden-App (Arbeitstitel „Retro-Puls“)
+auf einem neuen, allgemeinen Baustein im Kern: **Rückmeldungen sammeln** – getrennt vom Sync eigener Dokumente und
+später auch anderswo nutzbar (z. B. Gewichten in der Morphologischen Matrix, Dot-Voting).
+
+**Nicht mit der GitHub-Ablage:**
+
+- *Keine Anonymität:* Jede Abgabe wäre ein Commit mit dem persönlichen Token – Konto und Gerät stehen in der
+  Historie, für alle mit Zugriff auf das Repo sichtbar und nicht nachträglich zu verbergen.
+- *Hohe Hürde:* Alle Teilnehmenden bräuchten ein GitHub-Konto, Schreibzugriff und ein eigenes Token.
+- *Gleichzeitiges Schreiben:* Viele Abgaben in derselben Minute führen bei einer Datei zu Konflikten; eine Datei je
+  Person macht die Zuordnung noch deutlicher.
+- *Rechte:* Das Token erlaubt Lesen und Schreiben im ganzen Repo – also auch alle Antworten und Dokumente.
+
+**Mit Supabase (Stufe 3):**
+
+- Moderation legt eine Umfrage an und teilt Link bzw. QR-Code; Teilnahme **ohne Konto**.
+- Zugriffsregeln (Row Level Security): Teilnehmende dürfen nur **abgeben, nicht lesen**.
+- Antworten **ohne Personenbezug** gespeichert: keine Konto-ID, kein Gerät, Zeit nur auf den Tag genau.
+- Ergebnis erst **nach dem Schließen**, nur **zusammengefasst** und ab einer **Mindestzahl** (z. B. 3 Antworten).
+- Mehrfachabgabe nur weich verhindert (Merkzeichen im Browser) – für eine Retro ausreichend.
+
+**Grenzen (offen benennen):**
+
+- Wer das Supabase-Projekt betreibt, sieht technisch Zugriffsprotokolle (IP-Adressen): anonym gegenüber dem Team,
+  nicht vollständig gegenüber dem Betreiber.
+- Freitexte können über Inhalt oder Schreibstil auf Personen schließen lassen; Skalen sind deutlich anonymer.
+- Ohne Ablage bleibt die Variante „im Raum“: ein Gerät wird herumgereicht und zeigt nur die Summe – echt anonym,
+  aber nur vor Ort.
+
+**Für Stufe 3 vormerken:** das Datenmodell so anlegen, dass Umfragen und Antworten (`surveys`, `responses` ohne
+`user_id`) später ohne Umbau dazukommen. Nächster Schritt erst nach Stufe 3: Mockups der Retro-App (Umfrage-Link,
+Abgabe auf dem Telefon, Ergebnis nach dem Schließen).
 
 ## Entscheidungen
 
