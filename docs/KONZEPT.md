@@ -1,6 +1,6 @@
 # Konzept: gemeinsame Ablage für alle Methoden-Apps
 
-Stand: Oktober 2026 · Entscheidungen getroffen (am Ende) · Stufe 0 umgesetzt · **Stufe 1 umgesetzt** (Kern und Morphologische Matrix).
+Stand: Oktober 2026 · Entscheidungen getroffen (am Ende) · Stufen 0–2 umgesetzt (Kern `0.3.0`, eingebaut in alle fünf Apps) · nächster Schritt: Stufe 4 (Versionen vergleichen).
 
 Grundlage: [BACKEND.md der Morphologischen Matrix](https://github.com/method-commons/morphological-matrix-app/blob/main/docs/BACKEND.md).
 Dort beschriebene Punkte (Anmeldelink, Recht, Grenzen gegen Missbrauch …) gelten weiter und werden hier
@@ -238,8 +238,8 @@ Wie in BACKEND.md, ergänzt um:
 | Stufe | Inhalt | Aufwand |
 |---|---|---|
 | 0 | Speicherschicht der vier jüngeren Apps angleichen (`{ savedAt, data }`, gleiche Funktionen) – lohnt sich auch ohne Sync | klein · **umgesetzt** |
-| 1 | Kern mit `memory`- und GitHub-Adapter, Token-Assistent, Statusanzeige, Konfliktdialog; zuerst in einer App | groß · **umgesetzt** (Morphologische Matrix) |
-| 2 | Versionen (automatisch, benannt, wiederherstellen); Einbau in alle Apps | mittel |
+| 1 | Kern mit `memory`- und GitHub-Adapter, Token-Assistent, Statusanzeige, Konfliktdialog; zuerst in einer App | groß · **umgesetzt** (alle fünf Apps) |
+| 2 | Versionen (automatisch, benannt, wiederherstellen); Einbau in alle Apps | mittel · **umgesetzt** (Kern 0.3.0) |
 | 3 | Supabase-Adapter mit Einrichtungsassistent, Prüfung und Team-Einladungslink | groß |
 | 4 | Versionen vergleichen, Übersichtsseite aller Dokumente | mittel |
 | 5 | optional: Teilen mit Rechten (Supabase), „Anmelden mit GitHub“ über Tausch-Dienst, betriebene Ablage | groß |
@@ -349,4 +349,4 @@ mit den Entscheidungen wie empfohlen:
 - **Ohne Ablage:** „Versionen …“ erklärt die Ablage und bietet „Ablage einrichten …“ an.
 - **Zugang:** Menü „Datei → Versionen …“ der App (`ui.openVersions(id)`) und Details der Statusanzeige.
 
-Nächster Schritt: Stufe 3 (Supabase) bzw. Vergleichen zweier Stände (Stufe 4).
+Nächster Schritt: Stufe 4 – Versionen vergleichen (ohne Übersichtsseite, die folgt später); danach Stufe 3 (Supabase).
