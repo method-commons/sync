@@ -60,7 +60,7 @@ AppAdapter = {
   schemaVersion: 1,                 // Model.SCHEMA_VERSION
   list(),                           // Store.listDocs(): [{ id, savedAt, data }]
   read(id),                         // Store.readDoc(id): { id, savedAt, data } | null
-  write(id, data, savedAt),         // Store.writeDoc(…)
+  write(id, data, savedAt),         // Store.writeDoc(…); false = abgelehnt (ungespeicherte Eingaben → später Konflikt)
   normalize(raw),                   // Model.normalize – Prüfung bleibt in der App
   title(data), summary(data),       // Anzeigename und Kennzahlen für Listen und Konflikte
   duplicate(data, label),           // Kopie mit neuer ID für „Beide behalten“
@@ -318,5 +318,15 @@ Abweichungen und Grenzen gegenüber Konzept und Mockups:
 **Version 0.2.0:** Die Oberfläche ist eigenständig gestaltet (nur Klassen `mcs-…` auf den gemeinsamen
 Design-Tokens), weil die Apps unterschiedliche Klassennamen für Knöpfe, Listen und Dialoge haben.
 
-Nächste Schritte: Einbau in die übrigen vier Apps (Adapter wie in der Morphologischen Matrix) und Stufe 2
-(Versionen-Dialog: Liste, benannter Stand, Wiederherstellen).
+**Eingebaut in alle fünf Apps** (Oktober 2026, Kern `0.2.1`): Morphologische Matrix, RACI-Matrix,
+2-Achsen-Matrix, User Stories, 5 Why – je mit `js/ui/sync.jsx` und E2E-Tests gegen eine nachgebildete
+GitHub-API. Erkenntnisse beim Einbau:
+
+- **Ungespeicherte Eingaben:** Die Apps speichern beim Tippen verzögert (300 ms). Ein Stand aus der Ablage
+  wird abgelehnt, solange das geöffnete Dokument ungespeicherte Eingaben hat; nach dem Speichern meldet der
+  Kern einen Konflikt. Übernommene Stände zeigt die App sofort an.
+- **Änderungen melden:** In den vier jüngeren Apps meldet die Speicherschicht selbst (`Store.observe`), damit
+  auch Import, Duplizieren und Beispiele erfasst sind; die Morphologische Matrix meldet nach dem Speichern.
+- **Zeitplanung:** Ein früher geplanter Abgleich wird nicht durch einen späteren ersetzt (0.2.1).
+
+Nächster Schritt: Stufe 2 (Versionen-Dialog: Liste, benannter Stand, Wiederherstellen).

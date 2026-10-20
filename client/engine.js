@@ -29,7 +29,8 @@ import { AuthError, ConflictError, OfflineError } from './store.js';
  * @property {number} schemaVersion
  * @property {() => LocalDoc[]} list
  * @property {(id: string) => LocalDoc | null} read
- * @property {(id: string, data: unknown, savedAt: number) => boolean} write
+ * @property {(id: string, data: unknown, savedAt: number) => boolean} write Stand aus der Ablage speichern;
+ *   `false` = abgelehnt (z. B. ungespeicherte Eingaben in der App) – nach deren Speichern folgt ein Konflikt
  * @property {(raw: unknown) => unknown} normalize Prüfung der App; wirft bei ungültigen Daten
  * @property {(data: unknown) => string} title
  * @property {(data: unknown) => string} [summary] kurze Kennzahlen, z. B. „6 Parameter · 3 Konzepte“
