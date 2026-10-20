@@ -1,11 +1,56 @@
 /*
- * Stile der gemeinsamen Ablage-Oberfläche. Nutzen die Design-Tokens der Methoden-Apps
- * (--accent, --surface, --good …) und die Klassen der Apps (dialog, btn, doc, badge, check);
- * eigene Klassen mit Präfix mcs-. Bewusst ohne @layer: ergänzt die Ebenen der App.
+ * Stile der gemeinsamen Ablage-Oberfläche – eigenständig, nur Klassen mit Präfix mcs-, auf den
+ * Design-Tokens der Methoden-Apps (--accent, --surface, --good …). Bewusst ohne @layer: Die Apps
+ * ordnen ihre Stile in Ebenen, diese Regeln gehen damit stets vor und sehen überall gleich aus.
  */
-.mcs-dialog { width: min(680px, calc(100vw - 32px)); }
-.mcs-dialog .dialog-foot { gap: 8px; align-items: center; }
+
+/* ===== Bausteine (Vorlage: Morphologische Matrix) ===== */
+.mcs-dialog {
+  width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow: auto;
+  margin: auto; padding: 20px; border: 1px solid var(--border); border-radius: 16px;
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg);
+  font-size: 14px; line-height: 1.45; text-align: left;
+}
+.mcs-dialog::backdrop { background: rgba(16, 24, 40, .4); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+/* Schrift der App übernehmen, ohne die Bausteine unten zu überstimmen (:where = keine Spezifität) */
+:where(.mcs-dialog, .mcs-pop, .mcs-status) :where(button, input) { font-family: inherit; }
+.mcs-dialog h2, .mcs-dialog h3 { letter-spacing: normal; text-transform: none; }
+.mcs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mcs-head h2 { margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: -.01em; }
+.mcs-hint { margin: 6px 0 12px; font-size: .85rem; color: var(--muted); }
+.mcs-foot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
 .mcs-spacer { flex: 1; }
+
+.mcs-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 34px; margin: 0; padding: 5px 12px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm, 7px);
+  background: var(--surface); color: var(--text-2); cursor: pointer;
+  font-weight: 600; font-size: .9rem; line-height: 1.2; white-space: nowrap; text-decoration: none;
+  box-shadow: var(--shadow-xs, 0 1px 2px rgba(16, 24, 40, .05));
+  transition: background-color .12s, border-color .12s, color .12s;
+}
+.mcs-btn:hover { background: var(--surface-2); color: var(--text); }
+.mcs-btn:disabled { opacity: .45; cursor: default; }
+.mcs-btn:focus-visible, .mcs-icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mcs-small { min-height: 30px; padding: 3px 10px; font-size: .85rem; }
+.mcs-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast, #fff); box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.mcs-primary:hover { background: var(--accent-hover, var(--accent)); border-color: var(--accent-hover, var(--accent)); color: var(--accent-contrast, #fff); }
+.mcs-icon-btn { display: inline-grid; place-items: center; width: 34px; height: 34px; margin: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.mcs-icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+.mcs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mcs-doc { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.mcs-doc-info { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mcs-doc-title { font-weight: 650; overflow-wrap: anywhere; }
+.mcs-doc-meta { font-size: .8rem; color: var(--muted); }
+.mcs-doc-desc { font-size: .86rem; color: var(--text-2); }
+.mcs-doc-actions { display: flex; align-items: center; gap: 6px; }
+.mcs-badge { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-contrast, #fff); font-size: .7rem; font-weight: 600; vertical-align: middle; }
+.mcs-check { display: flex; align-items: center; gap: 8px; font-size: .85rem; cursor: pointer; }
+.mcs-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+
+/* ===== Ablage ===== */
 .mcs-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
 
 .mcs-steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; padding: 0; list-style: none; font-size: .8rem; color: var(--muted); }
@@ -15,12 +60,12 @@
 .mcs-steps .on b { background: var(--accent); color: var(--accent-contrast); }
 .mcs-steps .done b { background: var(--good); color: var(--surface); }
 
-.mcs-choice { align-items: flex-start; flex-wrap: nowrap; }
+.mcs-choice { align-items: flex-start; flex-wrap: nowrap; cursor: default; }
 .mcs-choice.is-current { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
 .mcs-choice.is-off { opacity: .6; }
 .mcs-choice > .mcs-icon { margin-top: 2px; color: var(--text-2); }
 .mcs-choice input { margin-top: 4px; accent-color: var(--accent); width: 16px; height: 16px; }
-.badge.mcs-grey { background: var(--surface-3); color: var(--text-2); }
+.mcs-badge.mcs-grey { background: var(--surface-3); color: var(--text-2); }
 
 .mcs-note { display: flex; gap: 10px; margin: 12px 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: .84rem; color: var(--text-2); line-height: 1.45; }
 .mcs-note > .mcs-icon { margin-top: 1px; color: var(--accent); }
@@ -44,8 +89,8 @@
 .mcs-checks .mcs-icon { width: 18px; height: 18px; padding: 2px; border-radius: 50%; background: var(--good-bg); color: var(--good); stroke-width: 2.6; }
 .mcs-checks small { margin-left: auto; color: var(--muted); }
 .mcs-h { margin: 14px 0 6px; font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
-.mcs-upload .check { flex: 1; color: var(--text); }
-.mcs-upload .check input { flex: none; }
+.mcs-upload .mcs-check { flex: 1; color: var(--text); }
+.mcs-upload .mcs-check input { flex: none; }
 
 /* Statusanzeige in der Kopfzeile */
 .mcs-status { position: relative; display: inline-flex; }
@@ -99,7 +144,7 @@
 .mcs-side h3 { margin: 0 0 2px; font-size: .92rem; }
 .mcs-opts { display: flex; flex-direction: column; gap: 6px; }
 .mcs-opt { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
-.mcs-opt .btn { flex: none; min-width: 170px; justify-content: center; }
+.mcs-opt .mcs-btn { flex: none; min-width: 170px; justify-content: center; }
 .mcs-opt span { font-size: .84rem; color: var(--muted); }
 @media (max-width: 560px) {
   .mcs-sides { grid-template-columns: 1fr; }

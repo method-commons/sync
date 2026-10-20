@@ -315,5 +315,8 @@ Abweichungen und Grenzen gegenüber Konzept und Mockups:
 - **Neuere Version der App:** Stände mit höherer Schema-Version werden nicht übernommen („Seite neu laden“).
 - **Unveränderte Beispiele** erkennt die App durch Vergleich mit den mitgelieferten Beispieldaten.
 
+**Version 0.2.0:** Die Oberfläche ist eigenständig gestaltet (nur Klassen `mcs-…` auf den gemeinsamen
+Design-Tokens), weil die Apps unterschiedliche Klassennamen für Knöpfe, Listen und Dialoge haben.
+
 Nächste Schritte: Einbau in die übrigen vier Apps (Adapter wie in der Morphologischen Matrix) und Stufe 2
 (Versionen-Dialog: Liste, benannter Stand, Wiederherstellen).

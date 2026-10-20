@@ -22,7 +22,7 @@ allen Geräten, Versionen, später Teilen im Team. Die Apps bleiben ohne Konto i
 | `client/controller.js` | je App: Einstellungen, Start, Einrichten, Token erneuern, Gerätename, Trennen, Ereignisse anderer Tabs |
 | `client/config.js` | gemeinsame Einstellungen aller Apps (localStorage), Gerätename – ohne Importe |
 | `client/github.js`, `client/memory.js` | Ablagen: GitHub-Repo (Contents-API), Speicher (Tests) |
-| `ui/index.js`, `ui/texts.js`, `ui/styles.css` | Oberfläche (Preact ohne JSX): Statusanzeige, Einrichtung, Ablage, Konflikt, Zustand je Dokument |
+| `ui/index.js`, `ui/texts.js`, `ui/styles.css` | Oberfläche (Preact ohne JSX, eigene Klassen `mcs-…` auf den gemeinsamen Tokens): Statusanzeige, Einrichtung, Ablage, Konflikt, Zustand je Dokument |
 
 Grundlage ist das Backend-Konzept der Morphologischen Matrix
 ([docs/BACKEND.md](https://github.com/method-commons/morphological-matrix-app/blob/main/docs/BACKEND.md)).
@@ -41,7 +41,7 @@ Dieses Konzept verallgemeinert es auf alle Apps und ergänzt GitHub als Ablage.
 ## Einbinden in eine App
 
 ```sh
-npm install git+https://github.com/method-commons/sync.git#v0.1.0   # Tag oder Commit-ID
+npm install git+https://github.com/method-commons/sync.git#<Tag oder Commit-ID>
 ```
 
 Über `git+https` statt `github:` – npm schriebe sonst `git+ssh` ins Lockfile, und die CI hat keinen

@@ -1,7 +1,8 @@
 /*
  * Gemeinsame Oberfläche der Ablage (Preact, ohne JSX – Apps brauchen keinen eigenen Build-Schritt).
- * Nutzt die Klassen der Apps (`dialog`, `btn`, `doc` …) und ergänzt eigene mit Präfix `mcs-`
- * (styles.css). Einstieg: `createSyncUI(...)` liefert Komponenten und Dialog-Aufrufe für eine App.
+ * Eigenständig gestaltet: nur Klassen mit Präfix `mcs-` (styles.css) auf den gemeinsamen Design-Tokens
+ * der Apps – so sieht die Ablage in jeder App gleich aus, unabhängig von deren Klassennamen.
+ * Einstieg: `createSyncUI(...)` liefert Komponenten und Dialog-Aufrufe für eine App.
  */
 import { h, render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -84,16 +85,16 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
       host.addEventListener('close', () => { if (host) render(null, host); });
       document.body.append(host);
     }
-    host.className = `dialog mcs-dialog ${cls}`.trim();
+    host.className = `mcs-dialog ${cls}`.trim();
     render(vnode, host);
     if (!host.open) host.showModal();
   }
   function closeDialog() { host?.close(); }
 
   /** @param {{ title: Children }} props */
-  const Head = ({ title }) => h('div', { class: 'dialog-head' },
+  const Head = ({ title }) => h('div', { class: 'mcs-head' },
     h('h2', { id: 'syncDialogTitle' }, title),
-    h('button', { type: 'button', class: 'icon-btn', 'aria-label': T.setup.close, title: T.setup.close, onClick: closeDialog }, Icon('close', 18)));
+    h('button', { type: 'button', class: 'mcs-icon-btn', 'aria-label': T.setup.close, title: T.setup.close, onClick: closeDialog }, Icon('close', 18)));
 
   /** @param {{ icon?: string, tone?: string, children?: Children }} props */
   const Note = ({ icon = 'cloud', tone = '', children }) => h('div', { class: `mcs-note ${tone}` }, Icon(icon, 18), h('div', null, children));
@@ -144,26 +145,26 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     if (step === 1) {
       return h('div', { class: 'mcs-setup', 'data-step': '1' },
         h(Head, { title: T.setup.title }),
-        h('p', { class: 'dialog-hint' }, T.setup.hint(nouns)),
+        h('p', { class: 'mcs-hint' }, T.setup.hint(nouns)),
         steps,
-        h('ul', { class: 'doc-list' },
-          h('li', { class: 'doc mcs-choice is-current' },
+        h('ul', { class: 'mcs-list' },
+          h('li', { class: 'mcs-doc mcs-choice is-current' },
             h('input', { type: 'radio', name: 'mcs-kind', checked: true, 'aria-label': T.setup.github }), Icon('github', 28),
-            h('div', { class: 'doc-info' },
-              h('span', { class: 'doc-title' }, T.setup.github, h('span', { class: 'badge' }, T.setup.githubBadge)),
-              h('span', { class: 'doc-desc' }, T.setup.githubDesc(nouns)),
-              h('span', { class: 'doc-meta' }, T.setup.githubMeta))),
-          h('li', { class: 'doc mcs-choice is-off' },
+            h('div', { class: 'mcs-doc-info' },
+              h('span', { class: 'mcs-doc-title' }, T.setup.github, h('span', { class: 'mcs-badge' }, T.setup.githubBadge)),
+              h('span', { class: 'mcs-doc-desc' }, T.setup.githubDesc(nouns)),
+              h('span', { class: 'mcs-doc-meta' }, T.setup.githubMeta))),
+          h('li', { class: 'mcs-doc mcs-choice is-off' },
             h('input', { type: 'radio', name: 'mcs-kind', disabled: true, 'aria-label': T.setup.supabase }), Icon('db', 28),
-            h('div', { class: 'doc-info' },
-              h('span', { class: 'doc-title' }, T.setup.supabase, h('span', { class: 'badge mcs-grey' }, T.setup.supabaseBadge)),
-              h('span', { class: 'doc-desc' }, T.setup.supabaseDesc),
-              h('span', { class: 'doc-meta' }, T.setup.supabaseMeta)))),
+            h('div', { class: 'mcs-doc-info' },
+              h('span', { class: 'mcs-doc-title' }, T.setup.supabase, h('span', { class: 'mcs-badge mcs-grey' }, T.setup.supabaseBadge)),
+              h('span', { class: 'mcs-doc-desc' }, T.setup.supabaseDesc),
+              h('span', { class: 'mcs-doc-meta' }, T.setup.supabaseMeta)))),
         h(Note, null, h('b', null, T.setup.allApps), ' ', T.setup.allAppsText),
-        h('div', { class: 'dialog-foot' },
+        h('div', { class: 'mcs-foot' },
           h('span', { class: 'mcs-spacer' }),
-          h('button', { type: 'button', class: 'btn', onClick: closeDialog }, T.setup.cancel),
-          h('button', { type: 'button', class: 'btn btn-primary', 'data-sync': 'next', onClick: () => setStep(2) }, T.setup.next)));
+          h('button', { type: 'button', class: 'mcs-btn', onClick: closeDialog }, T.setup.cancel),
+          h('button', { type: 'button', class: 'mcs-btn mcs-primary', 'data-sync': 'next', onClick: () => setStep(2) }, T.setup.next)));
     }
 
     if (step === 2) {
@@ -183,11 +184,11 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
               h('input', { name: 'token', type: 'password', value: token, autocomplete: 'off', required: true, onInput: (/** @type {any} */ e) => setToken(e.currentTarget.value) })))),
         h(Note, { icon: 'warn', tone: 'warn' }, T.setup.tokenNote),
         error ? h('p', { class: 'mcs-error', role: 'alert' }, error) : null,
-        h('div', { class: 'dialog-foot' },
-          h('button', { type: 'button', class: 'btn', onClick: () => setStep(1) }, T.setup.back),
+        h('div', { class: 'mcs-foot' },
+          h('button', { type: 'button', class: 'mcs-btn', onClick: () => setStep(1) }, T.setup.back),
           h('span', { class: 'mcs-spacer' }),
-          h('button', { type: 'button', class: 'btn', onClick: closeDialog }, T.setup.cancel),
-          h('button', { type: 'submit', class: 'btn btn-primary', 'data-sync': 'connect', disabled: busy || !repo.trim() || !token.trim() }, busy ? T.setup.checking : T.setup.connect)));
+          h('button', { type: 'button', class: 'mcs-btn', onClick: closeDialog }, T.setup.cancel),
+          h('button', { type: 'submit', class: 'mcs-btn mcs-primary', 'data-sync': 'connect', disabled: busy || !repo.trim() || !token.trim() }, busy ? T.setup.checking : T.setup.connect)));
     }
 
     const c = /** @type {import('../client/store.js').StoreCheck} */ (check);
@@ -203,17 +204,17 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
         c.expiresAt ? h('li', null, Icon('check'), T.setup.checkExpiry(dateOnly.format(new Date(c.expiresAt)))) : null,
         h('li', null, Icon('check'), T.setup.checkFolder(adapter.app))),
       docs.length ? h('div', { class: 'mcs-h' }, T.setup.uploadHeading(nouns)) : null,
-      docs.length ? h('ul', { class: 'doc-list mcs-upload' }, docs.map(d => h('li', { class: 'doc', key: d.id },
-        h('label', { class: 'check' },
+      docs.length ? h('ul', { class: 'mcs-list mcs-upload' }, docs.map(d => h('li', { class: 'mcs-doc', key: d.id },
+        h('label', { class: 'mcs-check' },
           h('input', { type: 'checkbox', checked: selected.has(d.id), onChange: () => toggle(d.id) }),
-          h('span', { class: 'doc-info' },
-            h('span', { class: 'doc-title' }, adapter.title(d.data)),
-            h('span', { class: 'doc-meta' }, adapter.summary?.(d.data) ?? '')))))) : null,
+          h('span', { class: 'mcs-doc-info' },
+            h('span', { class: 'mcs-doc-title' }, adapter.title(d.data)),
+            h('span', { class: 'mcs-doc-meta' }, adapter.summary?.(d.data) ?? '')))))) : null,
       h(Note, null, T.setup.uploadNote(nouns)),
-      h('div', { class: 'dialog-foot' },
-        h('button', { type: 'button', class: 'btn', onClick: () => setStep(2) }, T.setup.back),
+      h('div', { class: 'mcs-foot' },
+        h('button', { type: 'button', class: 'mcs-btn', onClick: () => setStep(2) }, T.setup.back),
         h('span', { class: 'mcs-spacer' }),
-        h('button', { type: 'button', class: 'btn btn-primary', 'data-sync': 'finish', disabled: busy, onClick: finish }, T.setup.uploadButton(selected.size, nouns))));
+        h('button', { type: 'button', class: 'mcs-btn mcs-primary', 'data-sync': 'finish', disabled: busy, onClick: finish }, T.setup.uploadButton(selected.size, nouns))));
   }
 
   // ---------- Ablage (eingerichtet) ----------
@@ -255,11 +256,11 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
         h('dd', null, h('a', { class: 'mcs-link', href: repoUrl(config.repo), target: '_blank', rel: 'noopener' }, T.storage.onGitHub, Icon('ext', 14))),
         h('dt', null, T.storage.token),
         h('dd', null, days == null ? T.storage.expiresUnknown : T.storage.expires(dateOnly.format(new Date(/** @type {string} */ (config.expiresAt))), days)),
-        h('dd', null, h('button', { type: 'button', class: 'btn btn-small', onClick: () => setRenewing(!renewing) }, T.storage.renew)),
+        h('dd', null, h('button', { type: 'button', class: 'mcs-btn mcs-small', onClick: () => setRenewing(!renewing) }, T.storage.renew)),
         renewing ? h('dd', { class: 'mcs-wide' },
           h('form', { class: 'mcs-inline', onSubmit: (/** @type {Event} */ e) => { e.preventDefault(); renew(); } },
             h('input', { type: 'password', value: token, 'aria-label': T.setup.tokenLabel, autocomplete: 'off', onInput: (/** @type {any} */ e) => setToken(e.currentTarget.value) }),
-            h('button', { type: 'submit', class: 'btn btn-small btn-primary', disabled: !token.trim() }, T.storage.renewSave)),
+            h('button', { type: 'submit', class: 'mcs-btn mcs-small mcs-primary', disabled: !token.trim() }, T.storage.renewSave)),
           error ? h('p', { class: 'mcs-error', role: 'alert' }, error) : null) : null,
         h('dt', null, T.storage.device),
         h('dd', { class: 'mcs-wide' }, h('input', {
@@ -270,14 +271,14 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
         h('dt', null, T.storage.otherApps), h('dd', { class: 'mcs-wide' }, others),
         h('dt', null, T.storage.versions), h('dd', { class: 'mcs-wide' }, T.storage.versionsText)),
       h(Note, { icon: 'warn', tone: 'warn' }, h('b', null, T.storage.gitDelete), ' ', T.storage.gitDeleteText(nouns)),
-      h('div', { class: 'dialog-foot' },
+      h('div', { class: 'mcs-foot' },
         h('button', {
-          type: 'button', class: 'btn mcs-danger', 'data-sync': 'disconnect',
+          type: 'button', class: 'mcs-btn mcs-danger', 'data-sync': 'disconnect',
           onClick: () => { if (window.confirm(T.storage.confirmDisconnect)) { controller.disconnect(); closeDialog(); } },
         }, T.storage.disconnect),
         h('span', { class: 'mcs-spacer' }),
-        h('button', { type: 'button', class: 'btn', onClick: () => controller.engine?.flush() }, T.storage.syncNow),
-        h('button', { type: 'button', class: 'btn btn-primary', onClick: closeDialog }, T.storage.done)));
+        h('button', { type: 'button', class: 'mcs-btn', onClick: () => controller.engine?.flush() }, T.storage.syncNow),
+        h('button', { type: 'button', class: 'mcs-btn mcs-primary', onClick: closeDialog }, T.storage.done)));
   }
 
   // ---------- Konflikt ----------
@@ -304,16 +305,16 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     /** @param {string} label @param {any} side */
     const Side = (label, side) => h('div', { class: 'mcs-side' },
       h('h3', null, label),
-      side ? h('div', { class: 'doc-meta' }, [T.conflict.changed(when(side.savedAt)), side.device, side.summary].filter(Boolean).join(' · '))
-        : h('div', { class: 'doc-meta' }, T.conflict.missing));
+      side ? h('div', { class: 'mcs-doc-meta' }, [T.conflict.changed(when(side.savedAt)), side.device, side.summary].filter(Boolean).join(' · '))
+        : h('div', { class: 'mcs-doc-meta' }, T.conflict.missing));
     return h('div', { class: 'mcs-conflict' },
       h(Head, { title: T.conflict.title(title) }),
-      h('p', { class: 'dialog-hint' }, info.base ? T.conflict.base(when(info.base)) : T.conflict.baseUnknown),
+      h('p', { class: 'mcs-hint' }, info.base ? T.conflict.base(when(info.base)) : T.conflict.baseUnknown),
       h('div', { class: 'mcs-sides' }, Side(T.conflict.here, info.local), Side(T.conflict.there, info.remote)),
       h('div', { class: 'mcs-opts' },
-        info.remote ? h('div', { class: 'mcs-opt' }, h('button', { type: 'button', class: 'btn btn-primary', 'data-sync': 'both', disabled: busy, onClick: () => choose('both') }, T.conflict.both), h('span', null, T.conflict.bothText(copyTitle, nouns))) : null,
-        h('div', { class: 'mcs-opt' }, h('button', { type: 'button', class: 'btn', 'data-sync': 'mine', disabled: busy, onClick: () => choose('mine') }, T.conflict.mine), h('span', null, T.conflict.mineText)),
-        h('div', { class: 'mcs-opt' }, h('button', { type: 'button', class: 'btn', 'data-sync': 'theirs', disabled: busy, onClick: () => choose('theirs') }, T.conflict.theirs), h('span', null, T.conflict.theirsText))),
+        info.remote ? h('div', { class: 'mcs-opt' }, h('button', { type: 'button', class: 'mcs-btn mcs-primary', 'data-sync': 'both', disabled: busy, onClick: () => choose('both') }, T.conflict.both), h('span', null, T.conflict.bothText(copyTitle, nouns))) : null,
+        h('div', { class: 'mcs-opt' }, h('button', { type: 'button', class: 'mcs-btn', 'data-sync': 'mine', disabled: busy, onClick: () => choose('mine') }, T.conflict.mine), h('span', null, T.conflict.mineText)),
+        h('div', { class: 'mcs-opt' }, h('button', { type: 'button', class: 'mcs-btn', 'data-sync': 'theirs', disabled: busy, onClick: () => choose('theirs') }, T.conflict.theirs), h('span', null, T.conflict.theirsText))),
       h(Note, null, T.conflict.note));
   }
 
@@ -359,8 +360,8 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
         sync?.lastSyncAt ? h('p', { class: 'mcs-muted' }, T.pop.lastSync(when(sync.lastSyncAt))) : null,
         status !== 'ok' && status !== 'idle' ? h('p', { class: 'mcs-muted' }, T.statusHint[status]) : null,
         h('div', { class: 'mcs-row' },
-          h('button', { type: 'button', class: 'btn btn-small', 'data-sync': 'flush', onClick: () => { controller.engine?.flush(); } }, Icon('up'), T.pop.pushNow),
-          h('button', { type: 'button', class: 'btn btn-small', onClick: () => { setOpen(false); openStorage(); } }, T.pop.storage))) : null);
+          h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'flush', onClick: () => { controller.engine?.flush(); } }, Icon('up'), T.pop.pushNow),
+          h('button', { type: 'button', class: 'mcs-btn mcs-small', onClick: () => { setOpen(false); openStorage(); } }, T.pop.storage))) : null);
   }
 
   // ---------- Liste der Dokumente der App ----------
@@ -372,8 +373,8 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     const s = sync.docs[id] ?? 'pending';
     return h('span', { class: 'mcs-docstate' },
       h('span', { class: `mcs-state ${STATE_TONE[s]}`, 'data-doc-state': s }, Icon(STATE_ICON[s], 15), T.doc[s]),
-      s === 'local' ? h('button', { type: 'button', class: 'btn btn-small', 'data-sync': 'upload', onClick: () => { controller.engine?.upload([id]); } }, Icon('up'), T.upload) : null,
-      s === 'conflict' ? h('button', { type: 'button', class: 'btn btn-small', onClick: () => openConflict(id) }, T.solve) : null);
+      s === 'local' ? h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'upload', onClick: () => { controller.engine?.upload([id]); } }, Icon('up'), T.upload) : null,
+      s === 'conflict' ? h('button', { type: 'button', class: 'mcs-btn mcs-small', onClick: () => openConflict(id) }, T.solve) : null);
   }
 
   /** Abschnitt „Nur in der Ablage“ unter der Liste der App. */
@@ -382,10 +383,10 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     if (!config || !sync?.remoteOnly.length) return null;
     return h('div', { class: 'mcs-remote' },
       h('div', { class: 'mcs-h' }, T.remoteOnly),
-      h('ul', { class: 'doc-list' }, sync.remoteOnly.map(d => h('li', { class: 'doc', key: d.id },
-        h('div', { class: 'doc-info' }, h('span', { class: 'doc-title' }, d.title), h('span', { class: 'doc-meta' }, T.remoteMeta(when(d.savedAt), d.device, d.summary))),
-        h('div', { class: 'doc-actions' }, h('button', {
-          type: 'button', class: 'btn btn-small', 'data-sync': 'download',
+      h('ul', { class: 'mcs-list' }, sync.remoteOnly.map(d => h('li', { class: 'mcs-doc', key: d.id },
+        h('div', { class: 'mcs-doc-info' }, h('span', { class: 'mcs-doc-title' }, d.title), h('span', { class: 'mcs-doc-meta' }, T.remoteMeta(when(d.savedAt), d.device, d.summary))),
+        h('div', { class: 'mcs-doc-actions' }, h('button', {
+          type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'download',
           onClick: async () => { if (await controller.engine?.download(d.id)) onOpenDoc(d.id); },
         }, Icon('down'), T.open))))));
   }
