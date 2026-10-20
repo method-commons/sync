@@ -268,4 +268,6 @@ gelesen und beim nächsten Speichern umgestellt; `load`, `save` und `all` bleibe
 für die Oberfläche.
 
 Nächster Schritt: Mockups in der Morphologischen Matrix (Menü „Ablage …“, Token-Assistent,
-Statusanzeige, Konfliktdialog), umsetzen erst nach „Ja“; danach Stufe 1.
+Statusanzeige, Konfliktdialog) – Entwurf mit offenen Entscheidungen in
+[morphological-matrix-app/docs/mockups/ablage](https://github.com/method-commons/morphological-matrix-app/tree/main/docs/mockups/ablage);
+umsetzen erst nach „Ja“, danach Stufe 1.
