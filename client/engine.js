@@ -135,6 +135,8 @@ export class SyncEngine {
     this.described = new Map();
     /** @type {ReturnType<typeof setTimeout> | undefined} */
     this.timer = undefined;
+    /** Zeitpunkt des geplanten Abgleichs (ms, Uhr des Browsers). */
+    this.timerAt = Infinity;
     /** @type {Promise<void> | null} */
     this.running = null;
     this.again = false;
@@ -227,13 +229,26 @@ export class SyncEngine {
   stop() {
     this.stopped = true;
     clearTimeout(this.timer);
+    this.timer = undefined;
   }
 
   /** @param {number} ms */
+  /**
+   * Nächsten Abgleich planen. Ein früher geplanter bleibt bestehen – sonst verschöbe z. B. das Ende
+   * eines laufenden Abgleichs (nächste Abfrage in Minuten) eine Änderung, die währenddessen kam.
+   * @param {number} ms
+   */
   schedule(ms) {
     if (!this.timers || this.stopped) return;
+    const at = Date.now() + ms;
+    if (this.timer !== undefined && this.timerAt <= at) return;
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => { this.run().catch(() => {}); }, ms);
+    this.timerAt = at;
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      this.timerAt = Infinity;
+      this.run().catch(() => {});
+    }, ms);
   }
 
   // ---------- Abgleich ----------

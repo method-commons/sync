@@ -259,6 +259,25 @@ describe('SyncEngine', () => {
     expect(store.log).toHaveLength(1);
   });
 
+  it('ersetzt einen früher geplanten Abgleich nicht durch einen späteren', async () => {
+    vi.useFakeTimers();
+    try {
+      const a = device(new MemoryStore(), 'A', { timers: true, now: () => Date.now() });
+      const run = vi.spyOn(a.engine, 'run').mockResolvedValue(undefined);
+      a.engine.schedule(3000); // z. B. Änderung während eines Abgleichs
+      a.engine.schedule(120_000); // Ende des Abgleichs: nächste Abfrage
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(run).toHaveBeenCalledTimes(1);
+      a.engine.schedule(120_000);
+      a.engine.schedule(1000); // früher: ersetzt den späteren
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(run).toHaveBeenCalledTimes(2);
+      a.engine.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('benachrichtigt Abonnenten und plant den nächsten Abgleich', async () => {
     vi.useFakeTimers();
     try {
