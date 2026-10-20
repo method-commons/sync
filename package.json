@@ -1,0 +1,35 @@
+{
+  "name": "@method-commons/sync",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Gemeinsamer Sync-Kern der Methoden-Apps: lokal zuerst, Versionen, austauschbare Ablage.",
+  "type": "module",
+  "exports": {
+    ".": "./client/index.js",
+    "./ui": "./ui/index.js",
+    "./ui/styles.css": "./ui/styles.css"
+  },
+  "files": [
+    "client",
+    "ui"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p jsconfig.json",
+    "test:unit": "vitest run --coverage --coverage.reporter=text-summary",
+    "test": "npm run lint && npm run typecheck && npm run test:unit"
+  },
+  "peerDependencies": {
+    "preact": "^10.29.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@vitest/coverage-v8": "5.0.3",
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "preact": "10.29.8",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
+  }
+}

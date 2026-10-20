@@ -1,0 +1,36 @@
+name: CI
+
+# Prüft jeden Pull Request und jeden Push auf main: Lint, Typprüfung, Unit-Tests mit Mindestabdeckung.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Typprüfung (tsc, JSDoc)
+        run: npm run typecheck
+
+      - name: Unit-Tests (Vitest, mit Mindestabdeckung)
+        run: npm run test:unit
