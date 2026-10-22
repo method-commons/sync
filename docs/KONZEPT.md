@@ -221,6 +221,59 @@ Aus Sicht der Nutzenden (Oktober 2026; Angaben zu Supabase-Plänen und -Grenzen 
 Teams mit GitHub-Konten, die Nachvollziehbarkeit wollen. *Supabase* passt für Teams ohne GitHub, mit
 EU-Anforderung, Rechten je Dokument oder anonymen Umfragen.
 
+## Entwurf: Teamarbeit mit Supabase
+
+*Stand Oktober 2026 – zum Nachdenken, nichts entschieden.* Braucht Stufe 3 (Supabase als Ablage) und das Teilen
+aus Stufe 5.
+
+**Rollen:** eine *einrichtende Person* (legt das Projekt an, verwaltet das Team) und *Teammitglieder*
+(brauchen nur einen Einladungslink und ihre E-Mail-Adresse).
+
+| Phase | Ablauf |
+|---|---|
+| **Einrichten** (einmalig, ca. 10 Min.) | Supabase-Projekt anlegen (Region z. B. Frankfurt) → Einrichtungsskript aus der App im SQL-Editor ausführen → in der App Projekt-Adresse und öffentlichen Schlüssel eintragen, die App prüft → mit E-Mail anmelden (Link, kein Passwort) → eigene Dokumente hochladen. Empfohlen: eigenen E-Mail-Versand eintragen (der eingebaute schafft nur wenige Mails pro Stunde). |
+| **Einladen** | „Team einladen …“ erzeugt einen Einladungslink (optional nur für bestimmte Adressen/Domain), weitergeben per Chat, Mail oder QR-Code → Teammitglied öffnet ihn, die Ablage ist eingetragen, E-Mail eingeben, Anmeldelink antippen → angemeldet für alle fünf Apps im Browser; weitere Geräte nur anmelden. |
+| **Arbeiten** | Neue Dokumente sind zunächst privat. „Teilen …“ an Personen oder das ganze Team (lesen/bearbeiten); geteilte Dokumente erscheinen bei den anderen in der Liste. Lokal zuerst wie heute, Änderungen anderer erscheinen sofort (Realtime). Kein Live-Mitschreiben: Hinweis „Anna bearbeitet gerade“ beugt vor, sonst Konfliktdialog. Versionen mit Namen der Person. Wer nur lesen darf, sieht das Dokument wie eine Vorschau. |
+| **Verwalten** | Person entfernen beendet den Zugriff sofort; Dokumente vorher übergeben. Löschen ist echt (mit Versionen). Auflösen: alles exportieren, Projekt löschen. Kostenloser Plan pausiert nach ca. 1 Woche ohne Nutzung. |
+
+Offene Fragen (mit vorläufiger Empfehlung):
+
+1. Teilen je Dokument oder ein gemeinsamer Team-Bereich? – zuerst **persönlicher Bereich und Team-Bereich**, Rechte je Dokument später.
+2. Ein oder mehrere Teams je Projekt? – **ein Team je Supabase-Projekt**.
+3. Hinweis „bearbeitet gerade“ gleich mit Stufe 3? – **ja**.
+
+## Entwurf: gemischter Betrieb
+
+*Stand Oktober 2026 – zum Nachdenken, nichts entschieden.*
+
+| Fall | Heute | Bedeutung | Aufwand |
+|---|---|---|---|
+| Ablage und „nur im Browser“ je Dokument | **gibt es** | je Dokument hochladen oder bewusst lokal behalten; gilt für jede Ablage. Mit Team-Bereich: *nur im Browser*, *persönlich*, *im Team*. | – |
+| Ablage wechseln (z. B. GitHub → Supabase) | nein | einmaliger Umzug: aktuelle Stände und benannte Stände; automatische Zwischenstände bleiben im alten Repo; Nur-Browser-Dokumente bleiben. | klein–mittel |
+| GitHub und Supabase gleichzeitig | nein | je Dokument wählen, wohin; zwei Engines, Statusanzeige und Versionen je Ablage, „Verschieben nach …“. Nutzen vor allem „Privates auf GitHub, Team in Supabase“ – deckt Supabase mit persönlichem und Team-Bereich auch ab. | groß |
+| Team gemischt (manche GitHub, manche Supabase) | – | kein gemeinsamer Stand, zwei unabhängige Kopien ohne Abgleich; Austausch nur über Export/Teilen-Link. | nicht sinnvoll |
+
+Vorläufige Empfehlung: eine Ablage je Browser (wie heute) mit „nur im Browser“ je Dokument; „Ablage umziehen …“
+mit Stufe 3; Privat und Team innerhalb von Supabase trennen; zwei Ablagen gleichzeitig nur bei echtem Bedarf.
+Regel für Teams: alle nutzen dieselbe Ablage.
+
+## Alternativen zu Supabase (zu prüfen)
+
+*Ungeprüfte Kandidaten als Ausgangspunkt – Funktionen, CORS aus dem Browser, Preise und Datenort vor einer
+Entscheidung prüfen.* Maßstab: ohne eigenen Server nutzbar (oder einfach selbst zu betreiben), Anmeldung ohne
+GitHub, EU möglich, Zugriffsregeln je Person/Team, Teilnahme aus dem Browser.
+
+| Kandidat | Art | Mögliche Stärken | Mögliche Schwächen |
+|---|---|---|---|
+| Supabase selbst betrieben | Postgres + Dienste, quelloffen | gleiche Schnittstelle wie gehostet, Daten im eigenen Netz | Betrieb mehrerer Dienste (Docker) |
+| Codeberg / Forgejo / Gitea | Git-Hosting, quelloffen | wie GitHub (Commits, Tags), EU (Codeberg) oder selbst betrieben; Adapter ähnlich `github.js` | Konten je Person, Löschen bleibt in der Historie, CORS/Token-Modell prüfen |
+| PocketBase | ein Programm mit Datenbank, Anmeldung, Realtime | sehr einfach selbst zu betreiben, Zugriffsregeln | braucht einen (kleinen) Server; kein großer Hosting-Anbieter |
+| Appwrite (Cloud oder selbst) | Backend-Dienst | Anmeldung, Teams, Rechte eingebaut; EU-Region | weitere Abhängigkeit, Einrichtung ähnlich aufwendig |
+| CouchDB / PouchDB | Dokumentdatenbank mit eingebautem Sync | Offline-Sync und Konflikterkennung „ab Werk“, passt zu lokal zuerst | Hosting (z. B. selbst) nötig, Rechte je Dokument umständlich |
+| Nextcloud / WebDAV | Dateiablage | in vielen Organisationen vorhanden, EU/eigener Server | CORS und Anmeldung aus dem Browser oft schwierig, keine Konfliktprüfung |
+| Firebase | Backend-Dienst (Google) | ausgereift, Realtime, Anmeldung | US-Anbieter, nicht quelloffen, Bindung an Google |
+| Lokal-zuerst-Sync (z. B. Automerge/Yjs mit Sync-Server) | CRDT | echtes gleichzeitiges Bearbeiten ohne Konflikte | braucht einen betriebenen Sync-Server; großer Umbau der Datenhaltung |
+
 ## Sync und Konflikte
 
 Wie in BACKEND.md, ergänzt um:
