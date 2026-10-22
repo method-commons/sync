@@ -34,6 +34,8 @@ const PATHS = {
   copy: 'M9 9h10v10H9zM5 15V5h10',
   right: 'M9 6l6 6-6 6',
   history: 'M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4.5H8M12 7.5V12l3 2',
+  share: 'M8.6 13.5l6.8 4M15.4 6.5l-6.8 4M18 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM9 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM18 19a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+  save: 'M12 4v11M7 10l5 5 5-5M5 20h14',
   db: 'M5 6c0-1.4 3.1-2.5 7-2.5s7 1.1 7 2.5-3.1 2.5-7 2.5S5 7.4 5 6zM5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5',
 };
 const GITHUB = 'M12 2.5a9.5 9.5 0 0 0-3 18.5c.5.1.7-.2.7-.5v-1.7c-2.6.6-3.2-1.2-3.2-1.2-.4-1.1-1-1.4-1-1.4-.9-.6 0-.6 0-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.3-1.1.6-1.3-2.1-.2-4.3-1-4.3-4.7 0-1 .4-1.9 1-2.6-.1-.2-.4-1.2.1-2.5 0 0 .8-.3 2.6 1a9 9 0 0 1 4.8 0c1.8-1.3 2.6-1 2.6-1 .5 1.3.2 2.3.1 2.5.6.7 1 1.6 1 2.6 0 3.7-2.2 4.5-4.3 4.7.3.3.6.9.6 1.8v2.7c0 .3.2.6.7.5A9.5 9.5 0 0 0 12 2.5z';
@@ -63,8 +65,21 @@ const repoUrl = repo => `https://github.com/${repo}`;
 /** @param {unknown} e */
 const messageOf = e => String(/** @type {any} */ (e)?.message ?? e);
 
+/** Neues fine-grained Token auf GitHub, vorbelegt (Repo wählt man selbst). @param {SyncTexts} T */
+const tokenUrl = T => `https://github.com/settings/personal-access-tokens/new?${new URLSearchParams({
+  name: T.setup.tokenName, description: T.setup.tokenDescription, contents: 'write', gists: 'write', expires_in: '90',
+})}`;
+
+/** Link zum Ansehen eines geteilten Dokuments (in derselben App). @param {string} gist */
+export const shareUrl = gist => `${globalThis.location?.href.split('#')[0] ?? ''}#g=${gist}`;
+
+/** Kennung eines geteilten Dokuments aus der Adresse (`#g=…`), sonst `null`. @param {string} hash */
+export const sharedFromHash = hash => /^#g=([0-9a-f]{8,64})$/i.exec(hash)?.[1] ?? null;
+
 /**
- * @typedef {object} Preview Früherer Stand, den die App nur lesend zeigt
+ * @typedef {object} Preview Früherer bzw. geteilter Stand, den die App nur lesend zeigt
+ * @property {'version' | 'shared'} [kind] `shared`: per Link geteilt (nichts davon ist im Browser gespeichert)
+ * @property {string} [gist] Kennung des geteilten Links
  * @property {string} id
  * @property {string} sha
  * @property {number} date
@@ -198,9 +213,11 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
             h('label', { class: 'mcs-field' }, T.setup.repoLabel,
               h('input', { name: 'repo', value: repo, autocomplete: 'off', spellcheck: false, required: true, placeholder: 'team/methoden', onInput: (/** @type {any} */ e) => setRepo(e.currentTarget.value) }),
               h('small', null, T.setup.repoHelp))),
-          h('li', null, h('h3', null, T.setup.tokenTitle), T.setup.tokenText,
-            h('ul', null, T.setup.tokenRules.map(([a, b, c]) => h('li', null, a, h('b', null, b), c))),
-            h('a', { class: 'mcs-link', href: 'https://github.com/settings/personal-access-tokens/new', target: '_blank', rel: 'noopener' }, T.setup.tokenLink, Icon('ext', 14)),
+          h('li', null, h('h3', null, T.setup.tokenTitle),
+            h('p', { class: 'mcs-hint mcs-tight' }, T.setup.tokenText[0], h('b', null, T.setup.tokenText[1]), T.setup.tokenText[2]),
+            h('div', { class: 'mcs-token' },
+              h('a', { class: 'mcs-btn mcs-primary', href: tokenUrl(T), target: '_blank', rel: 'noopener', 'data-sync': 'token-link' }, Icon('ext', 14), T.setup.tokenLink),
+              h('small', null, T.setup.tokenScopes), h('small', null, T.setup.tokenOwner)),
             h('label', { class: 'mcs-field' }, T.setup.tokenLabel,
               h('input', { name: 'token', type: 'password', value: token, autocomplete: 'off', required: true, onInput: (/** @type {any} */ e) => setToken(e.currentTarget.value) })))),
         h(Note, { icon: 'warn', tone: 'warn' }, T.setup.tokenNote),
@@ -279,6 +296,7 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
         h('dd', null, days == null ? T.storage.expiresUnknown : T.storage.expires(dateOnly.format(new Date(/** @type {string} */ (config.expiresAt))), days)),
         h('dd', null, h('button', { type: 'button', class: 'mcs-btn mcs-small', onClick: () => setRenewing(!renewing) }, T.storage.renew)),
         renewing ? h('dd', { class: 'mcs-wide' },
+          h('a', { class: 'mcs-link', href: tokenUrl(T), target: '_blank', rel: 'noopener' }, T.storage.renewLink, Icon('ext', 14)),
           h('form', { class: 'mcs-inline', onSubmit: (/** @type {Event} */ e) => { e.preventDefault(); renew(); } },
             h('input', { type: 'password', value: token, 'aria-label': T.setup.tokenLabel, autocomplete: 'off', onInput: (/** @type {any} */ e) => setToken(e.currentTarget.value) }),
             h('button', { type: 'submit', class: 'mcs-btn mcs-small mcs-primary', disabled: !token.trim() }, T.storage.renewSave)),
@@ -568,10 +586,12 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     useEffect(() => {
       const fn = () => setTick(t => t + 1);
       previewListeners.add(fn);
+      fn(); // inzwischen gesetzte Ansicht (z. B. sofort geöffneter Link) nachholen
       return () => { previewListeners.delete(fn); };
     }, []);
     const p = preview;
     if (!p) return null;
+    if (p.kind === 'shared') return h(SharedBar, { p });
     const v = { sha: p.sha, date: p.date, device: p.device, name: p.name };
     return h('div', { class: 'mcs-preview', role: 'status', id: 'syncPreview' },
       Icon('eye', 18),
@@ -582,6 +602,137 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
         h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'preview-restore', onClick: () => openRestore(p.id, v) }, Icon('undo'), T.versions.restore),
         h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'preview-copy', onClick: () => copy(p.id, v) }, Icon('copy'), T.versions.copy),
         h('button', { type: 'button', class: 'mcs-btn mcs-small mcs-primary', 'data-sync': 'preview-back', onClick: endPreview }, T.versions.back)));
+  }
+
+  // ---------- Teilen zum Ansehen ----------
+
+  /** Fehlermeldung beim Öffnen eines geteilten Links. @param {unknown} e */
+  function sharedError(e) {
+    const E = T.share.errors;
+    if (e instanceof OfflineError) return E.offline;
+    if (e instanceof SetupError) {
+      if (e.message === 'share-missing') return E.missing;
+      if (e.message === 'share-other-app') return E.otherApp;
+      if (e.message === 'newer-schema') return E.newer;
+    }
+    return E.invalid;
+  }
+
+  /** Leiste über einem geteilten Dokument: Aktualisieren, Als Kopie speichern, Schließen. @param {{ p: Preview }} props */
+  function SharedBar({ p }) {
+    const [busy, setBusy] = useState(false);
+    async function refresh() {
+      setBusy(true);
+      try {
+        const { data, savedAt, device } = await controller.readShared(/** @type {string} */ (p.gist));
+        setPreview({ ...p, date: savedAt, device, data });
+        toast(T.share.refreshed);
+      } catch (e) {
+        toast(sharedError(e));
+      } finally {
+        setBusy(false);
+      }
+    }
+    function saveCopy() {
+      const copy = adapter.duplicate(p.data, T.share.copyLabel);
+      adapter.write(copy.id, copy.data, Date.now());
+      controller.changed(copy.id);
+      endPreview();
+      onOpenDoc(copy.id);
+      toast(T.share.copySaved(nouns));
+    }
+    return h('div', { class: 'mcs-preview', role: 'status', id: 'syncPreview', 'data-kind': 'shared' },
+      Icon('eye', 18),
+      h('div', { class: 'mcs-preview-text' },
+        h('b', null, T.share.viewTitle(nouns)), ' ', T.share.viewMeta(p.device, dateTime.format(p.date)), ' – ', T.share.viewLocked),
+      h('div', { class: 'mcs-row' },
+        h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'shared-refresh', disabled: busy, onClick: refresh }, Icon('sync'), T.share.refresh),
+        h('button', { type: 'button', class: 'mcs-btn mcs-small mcs-primary', 'data-sync': 'shared-copy', onClick: saveCopy }, Icon('save'), T.share.saveCopy),
+        h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'shared-close', onClick: endPreview }, T.share.close)));
+  }
+
+  /** @param {{ id: string }} props */
+  function ShareDialog({ id }) {
+    const { sync } = useController(controller);
+    const engine = /** @type {import('../client/engine.js').SyncEngine} */ (controller.engine);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState(/** @type {Children} */ (null));
+    const local = adapter.read(id);
+    const title = local ? adapter.title(local.data) : id;
+    const info = engine.shareInfo(id);
+    void sync; // neu zeichnen, wenn sich die Merkliste ändert
+
+    async function create() {
+      setBusy(true);
+      setError(null);
+      try {
+        await engine.share(id);
+      } catch (e) {
+        setError(e instanceof AuthError && e.status === 403
+          ? h(Note, { icon: 'warn', tone: 'warn' }, h('b', null, T.share.permission), ' ', T.share.permissionText, ' ',
+            h('a', { class: 'mcs-link', href: tokenUrl(T), target: '_blank', rel: 'noopener', 'data-sync': 'token-link' }, T.setup.tokenLink, Icon('ext', 14)))
+          : h('p', { class: 'mcs-error', role: 'alert' }, e instanceof ConflictError ? T.versions.conflict
+            : e instanceof SetupError && e.message === 'local-only' ? T.versions.localOnly(nouns) : T.versions.failed(messageOf(e))));
+      } finally {
+        setBusy(false);
+      }
+    }
+    async function stop() {
+      if (!window.confirm(T.share.confirmStop)) return;
+      setBusy(true);
+      try {
+        await engine.unshare(id);
+        toast(T.share.stopped);
+      } catch (e) {
+        setError(h('p', { class: 'mcs-error', role: 'alert' }, T.versions.failed(messageOf(e))));
+      } finally {
+        setBusy(false);
+      }
+    }
+    async function copyLink() {
+      const url = shareUrl(/** @type {import('../client/store.js').ShareInfo} */ (info).gist);
+      try { await navigator.clipboard.writeText(url); toast(T.share.copied); } catch (e) { window.prompt(T.share.link, url); }
+    }
+
+    if (!info) {
+      return h('div', { class: 'mcs-share' },
+        h(Head, { title: T.share.title(title) }),
+        h('p', { class: 'mcs-hint' }, T.share.intro(nouns)),
+        h(Note, { icon: 'warn', tone: 'warn' }, h('b', null, T.share.warn), ' ', T.share.warnText),
+        h('dl', { class: 'mcs-kv' },
+          h('dt', null, T.share.storedAs), h('dd', { class: 'mcs-wide' }, T.share.storedAsText),
+          h('dt', null, T.share.editing), h('dd', { class: 'mcs-wide' }, T.share.editingText)),
+        error,
+        h('div', { class: 'mcs-foot' },
+          h('span', { class: 'mcs-spacer' }),
+          h('button', { type: 'button', class: 'mcs-btn', onClick: closeDialog }, T.share.cancel),
+          h('button', { type: 'button', class: 'mcs-btn mcs-primary', 'data-sync': 'share-create', disabled: busy, onClick: create }, Icon('share'), busy ? T.share.creating : T.share.create)));
+    }
+    return h('div', { class: 'mcs-share' },
+      h(Head, { title: T.share.title(title) }),
+      h('p', { class: 'mcs-hint' }, T.share.shared(nouns)),
+      h('label', { class: 'mcs-field' }, T.share.link,
+        h('div', { class: 'mcs-inline' },
+          h('input', { class: 'mcs-input', readOnly: true, value: shareUrl(info.gist), name: 'share-link', onFocus: (/** @type {any} */ e) => e.currentTarget.select() }),
+          h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'share-copy', onClick: copyLink }, Icon('copy'), T.share.copy))),
+      h('dl', { class: 'mcs-kv' },
+        h('dt', null, T.share.since), h('dd', { class: 'mcs-wide' }, when(info.since)),
+        h('dt', null, T.share.state), h('dd', { class: 'mcs-wide' }, T.share.stateText),
+        h('dt', null, T.share.onGitHub), h('dd', { class: 'mcs-wide' }, h('a', { class: 'mcs-link', href: `https://gist.github.com/${info.gist}`, target: '_blank', rel: 'noopener' }, T.share.gist, Icon('ext', 14)))),
+      error,
+      h('div', { class: 'mcs-foot' },
+        h('button', { type: 'button', class: 'mcs-btn mcs-danger', 'data-sync': 'share-stop', disabled: busy, onClick: stop }, Icon('close'), T.share.stop),
+        h('span', { class: 'mcs-spacer' }),
+        h('button', { type: 'button', class: 'mcs-btn mcs-primary', onClick: closeDialog }, T.share.done)));
+  }
+
+  function NoShareStorageDialog() {
+    return h('div', { class: 'mcs-share' },
+      h(Head, { title: T.share.menu }),
+      h('p', { class: 'mcs-hint' }, T.share.noStorage(nouns)),
+      h('div', { class: 'mcs-foot' },
+        h('button', { type: 'button', class: 'mcs-btn', onClick: closeDialog }, T.versions.close),
+        h('button', { type: 'button', class: 'mcs-btn mcs-primary', 'data-sync': 'setup', onClick: openStorage }, T.versions.setUp)));
   }
 
   // ---------- Statusanzeige ----------
@@ -639,6 +790,7 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     if (!config || !sync) return null;
     const s = sync.docs[id] ?? 'pending';
     return h('span', { class: 'mcs-docstate' },
+      sync.shared?.includes(id) ? h('button', { type: 'button', class: 'mcs-badge mcs-shared', 'data-sync': 'shared-badge', title: T.share.menu, onClick: () => openShare(id) }, T.share.badge) : null,
       h('span', { class: `mcs-state ${STATE_TONE[s]}`, 'data-doc-state': s }, Icon(STATE_ICON[s], 15), T.doc[s]),
       s === 'local' ? h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'upload', onClick: () => { controller.engine?.upload([id]); } }, Icon('up'), T.upload) : null,
       s === 'conflict' ? h('button', { type: 'button', class: 'mcs-btn mcs-small', onClick: () => openConflict(id) }, T.solve) : null);
@@ -682,19 +834,41 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     show(h(SaveVersionDialog, { id, key: `s-${id}` }), 'mcs-save-dialog');
   }
 
+  /** „Teilen …“ eines Dokuments; ohne Ablage ein Hinweis zum Einrichten. @param {string | null} id */
+  function openShare(id) {
+    if (!controller.state.config || !controller.engine) show(h(NoShareStorageDialog, {}), 'mcs-share-dialog');
+    else if (id) show(h(ShareDialog, { id, key: `share-${id}` }), 'mcs-share-dialog');
+  }
+
+  /**
+   * Geteiltes Dokument nur lesend zeigen (Link `#g=…`). Es wird **nichts** gespeichert – weder im Browser noch in
+   * einer eingerichteten Ablage; erst „Als Kopie speichern“ legt bewusst ein Dokument an.
+   * @param {string} gist @returns {Promise<boolean>}
+   */
+  async function openShared(gist) {
+    try {
+      const { data, savedAt, device } = await controller.readShared(gist);
+      setPreview({ kind: 'shared', gist, id: gist, sha: '', date: savedAt, device, data });
+      return true;
+    } catch (e) {
+      toast(sharedError(e));
+      return false;
+    }
+  }
+
   /** @param {string} id @param {Version} v */
   function openRestore(id, v) {
     show(h(RestoreDialog, { id, v, key: `r-${v.sha}` }), 'mcs-restore-dialog');
   }
 
   return {
-    texts: T, StatusChip, DocState, RemoteOnly, PreviewBar, openStorage, openConflict, openVersions, endPreview, closeDialog,
+    texts: T, StatusChip, DocState, RemoteOnly, PreviewBar, openStorage, openConflict, openVersions, openShare, openShared, endPreview, closeDialog,
     /** Wird gerade ein früherer Stand angesehen? */
     previewing: () => preview,
     /** Hinweis im Menü: Zustand der Ablage. */
     menuHint: () => (controller.state.config ? T.status[controller.state.sync?.status ?? 'idle'] : T.menu.notSet),
     /** Commit-Nachrichten in der Sprache der App (für die Engine). */
-    messages: { save: T.commit.save, remove: T.commit.remove },
+    messages: { save: T.commit.save, remove: T.commit.remove, share: T.commit.share },
     toast,
   };
 }

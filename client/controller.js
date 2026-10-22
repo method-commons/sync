@@ -4,8 +4,9 @@
  * Oberfläche (`ui/`) liest nur `state` und ruft die Methoden auf.
  */
 import { CONFIG_KEY, clearConfig, defaultDevice, defaultStorage, loadConfig, saveConfig } from './config.js';
+import { SetupError } from './store.js';
 import { META_PREFIX, SyncEngine } from './engine.js';
-import { GitHubStore } from './github.js';
+import { GitHubStore, fetchShared } from './github.js';
 
 /** @typedef {import('./config.js').SyncConfig} SyncConfig */
 /** @typedef {import('./config.js').KeyValue} KeyValue */
@@ -177,6 +178,17 @@ export class SyncController {
 
   /** Die App hat ein Dokument gespeichert. @param {string} id */
   changed(id) { this.engine?.changed(id); }
+
+  /**
+   * Geteiltes Dokument lesen (Empfänger, ohne Ablage und ohne Anmeldung); prüft App und Datenformat.
+   * @param {string} gist @returns {Promise<{ data: unknown, savedAt: number, device: string }>}
+   */
+  async readShared(gist) {
+    const { record } = await fetchShared(gist, this.fetch);
+    if (record.app !== this.adapter.app) throw new SetupError('share-other-app', 400);
+    if (Number(record.schemaVersion) > this.adapter.schemaVersion) throw new SetupError('newer-schema', 400);
+    return { data: this.adapter.normalize(record.data), savedAt: Number(record.savedAt) || 0, device: String(record.device || '') };
+  }
 
   /** Die App hat ein Dokument gelöscht. @param {string} id */
   removed(id) { this.engine?.removed(id); }

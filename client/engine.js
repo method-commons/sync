@@ -12,6 +12,8 @@
  */
 import { AuthError, ConflictError, OfflineError, SetupError } from './store.js';
 
+/** @typedef {import('./store.js').ShareInfo} ShareInfo */
+
 /** @typedef {import('./store.js').RemoteStore} RemoteStore */
 /** @typedef {import('./store.js').StoredRecord} StoredRecord */
 /** @typedef {import('./config.js').KeyValue} KeyValue */
@@ -47,6 +49,7 @@ import { AuthError, ConflictError, OfflineError, SetupError } from './store.js';
  * @property {boolean} [localOnly] bewusst nur im Browser
  * @property {boolean} [deleted] im Browser gelöscht, in der Ablage noch zu löschen
  * @property {string | null} [conflict] Stand in der Ablage, der mit dem Browser-Stand kollidiert
+ * @property {ShareInfo} [share] zum Ansehen geteilt
  */
 
 /** @typedef {'ok' | 'pending' | 'busy' | 'local' | 'conflict' | 'newer'} DocState */
@@ -70,6 +73,7 @@ import { AuthError, ConflictError, OfflineError, SetupError } from './store.js';
  * @property {Record<string, DocState>} docs
  * @property {string[]} conflicts IDs mit Konflikt
  * @property {RemoteDoc[]} remoteOnly
+ * @property {string[]} shared IDs der zum Ansehen geteilten Dokumente
  */
 
 /**
@@ -123,7 +127,8 @@ export class SyncEngine {
    * @param {number} [opts.interval] Mindestabstand zweier Übertragungen eines Dokuments (ms)
    * @param {number} [opts.delay] Wartezeit nach einer Änderung (ms)
    * @param {number} [opts.poll] Abstand der Abfragen auf Änderungen anderer Geräte (ms)
-   * @param {{ save: (title: string, device: string) => string, remove: (title: string, device: string) => string }} [opts.messages] Commit-Nachrichten
+   * @param {{ save: (title: string, device: string) => string, remove: (title: string, device: string) => string, share?: (title: string) => string }} [opts.messages]
+   *   Commit-Nachrichten; `share`: Beschreibung des geteilten Links
    * @param {boolean} [opts.timers] false: keine Zeitgeber (Tests)
    */
   constructor({
@@ -145,7 +150,7 @@ export class SyncEngine {
     };
     this.timers = timers;
     /** @type {SyncState} */
-    this.state = { status: 'idle', error: null, lastSyncAt: null, docs: {}, conflicts: [], remoteOnly: [] };
+    this.state = { status: 'idle', error: null, lastSyncAt: null, docs: {}, conflicts: [], remoteOnly: [], shared: [] };
     /** @type {Set<(s: SyncState) => void>} */
     this.listeners = new Set();
     /** @type {Set<(id: string) => void>} */
@@ -343,6 +348,8 @@ export class SyncEngine {
 
       if (m.deleted) {
         if (head && head === m.head) await store.remove(app, id, head, this.messages.remove(m.title || id, this.device));
+        // gelöscht: auch das Teilen beenden, sonst bliebe der Link mit dem alten Stand bestehen
+        if (m.share) await store.deleteShare?.(m.share.gist).catch(() => {});
         // in der Ablage inzwischen geändert: dort lassen (erscheint als „nur in der Ablage“)
         delete meta[id];
         this.saveMeta(meta);
@@ -403,13 +410,15 @@ export class SyncEngine {
   async push(local, baseHead, meta) {
     const { adapter, store } = this;
     const title = adapter.title(local.data);
+    const share = meta[local.id]?.share;
     /** @type {StoredRecord} */
-    const record = { app: adapter.app, schemaVersion: adapter.schemaVersion, savedAt: local.savedAt, device: this.device, data: local.data };
+    const record = { app: adapter.app, schemaVersion: adapter.schemaVersion, savedAt: local.savedAt, device: this.device, data: local.data, ...(share ? { share } : {}) };
     const docs = { ...this.state.docs, [local.id]: /** @type {DocState} */ ('busy') };
     this.setState({ docs, status: 'busy' });
     try {
       const head = await store.put(adapter.app, local.id, record, baseHead, this.messages.save(title, this.device));
-      meta[local.id] = { head, savedAt: local.savedAt, pushedAt: this.now(), title, hash: fingerprint(local.data) };
+      meta[local.id] = { head, savedAt: local.savedAt, pushedAt: this.now(), title, hash: fingerprint(local.data), ...(share ? { share } : {}) };
+      if (share) await this.updateShared(local.id, share, record, meta);
     } catch (e) {
       if (!(e instanceof ConflictError)) throw e;
       // Inzwischen anders in der Ablage: Konflikt merken. Datei verschwunden: beim nächsten Mal neu anlegen.
@@ -434,7 +443,8 @@ export class SyncEngine {
     try { data = adapter.normalize(got.record.data); } catch (e) { return 'invalid'; }
     const savedAt = Number(got.record.savedAt) || this.now();
     if (!adapter.write(id, data, savedAt)) return 'invalid';
-    meta[id] = { head: got.head, savedAt, pushedAt: meta[id]?.pushedAt, title: adapter.title(data), hash: fingerprint(data) };
+    const share = validShare(got.record.share);
+    meta[id] = { head: got.head, savedAt, pushedAt: meta[id]?.pushedAt, title: adapter.title(data), hash: fingerprint(data), ...(share ? { share } : {}) };
     this.saveMeta(meta);
     pulled.push(id);
     return 'ok';
@@ -482,7 +492,8 @@ export class SyncEngine {
             : isDirty(local, m) ? 'pending' : 'ok';
     }
     const conflicts = Object.keys(docs).filter(id => docs[id] === 'conflict');
-    this.setState({ docs, conflicts, status: this.summarize(docs), error: newer ? 'newer-schema' : null });
+    const shared = Object.keys(meta).filter(id => meta[id]?.share && !meta[id].deleted && !meta[id].localOnly);
+    this.setState({ docs, conflicts, shared, status: this.summarize(docs), error: newer ? 'newer-schema' : null });
   }
 
   /** @param {Record<string, DocState>} docs @returns {SyncStatus} */
@@ -684,9 +695,83 @@ export class SyncEngine {
     await this.flush();
     return copy.id;
   }
+
+  // ---------- Teilen zum Ansehen ----------
+
+  /** Geteilt? @param {string} id @returns {ShareInfo | null} */
+  shareInfo(id) { return this.loadMeta()[id]?.share ?? null; }
+
+  /** Beschreibung des geteilten Links. @param {string} title */
+  shareDescription(title) { return this.messages.share?.(title) ?? title; }
+
+  /**
+   * Geteilten Stand erneuern (nach jeder Übertragung). Ist das Teilen inzwischen beendet (Gist gelöscht),
+   * wird es vergessen; andere Fehler (z. B. fehlende Berechtigung) halten den Abgleich nicht auf.
+   * @param {string} id @param {ShareInfo} share @param {StoredRecord} record @param {Record<string, DocMeta>} meta
+   */
+  async updateShared(id, share, record, meta) {
+    try {
+      await this.store.updateShare?.(share.gist, record, this.shareDescription(this.adapter.title(record.data)));
+    } catch (e) {
+      if (e instanceof SetupError && e.status === 404 && meta[id]) delete meta[id].share;
+    }
+  }
+
+  /**
+   * Dokument zum Ansehen teilen: aktuellen Stand sofort übertragen, Link anlegen und die Kennung im Eintrag der
+   * Ablage vermerken (so erneuern alle Geräte des Besitzers den Link). Gibt die Kennung zurück.
+   * Wirft {@link AuthError} 403, wenn dem Zugang die Berechtigung fehlt.
+   * @param {string} id @returns {Promise<string>}
+   */
+  async share(id) {
+    const { adapter, store } = this;
+    if (!store.createShare) throw new SetupError('share-unsupported', 400);
+    await this.run({ force: true });
+    const gist = await this.withLock(async () => {
+      const meta = this.loadMeta();
+      const m = meta[id];
+      const local = adapter.read(id);
+      if (!local || m?.localOnly) throw new SetupError('local-only', 400);
+      if (m?.conflict !== undefined) throw new ConflictError();
+      if (m?.share) return m.share.gist;
+      if (!m || !m.head || isDirty(local, m)) await this.push(local, m?.head ?? null, meta);
+      if (meta[id]?.conflict !== undefined) throw new ConflictError();
+      const share = { gist: '', since: this.now() };
+      /** @type {StoredRecord} */
+      const record = { app: adapter.app, schemaVersion: adapter.schemaVersion, savedAt: local.savedAt, device: this.device, data: local.data };
+      share.gist = await /** @type {NonNullable<RemoteStore['createShare']>} */ (store.createShare)({ ...record, share }, this.shareDescription(adapter.title(local.data)));
+      meta[id] = { ...meta[id], share };
+      // Eintrag in der Ablage mit Kennung übertragen (gleicher Inhalt, nur das Teilen ist neu)
+      await this.push(local, meta[id].head ?? null, meta);
+      return share.gist;
+    });
+    this.refreshDocs(this.loadMeta());
+    return gist;
+  }
+
+  /** Teilen beenden: Link löschen, Kennung aus dem Eintrag der Ablage entfernen. @param {string} id */
+  async unshare(id) {
+    await this.withLock(async () => {
+      const meta = this.loadMeta();
+      const m = meta[id];
+      if (!m?.share) return;
+      await this.store.deleteShare?.(m.share.gist);
+      delete m.share;
+      this.saveMeta(meta);
+      const local = this.adapter.read(id);
+      if (local && m.head && m.conflict === undefined) await this.push(local, m.head, meta);
+    });
+    this.refreshDocs(this.loadMeta());
+  }
 }
 
 /** Gerät aus der Commit-Nachricht „Titel (Gerät)“. @param {string} message */
 export function deviceOf(message) {
   return /\(([^()]*)\)\s*$/.exec(message.split('\n')[0])?.[1] ?? '';
+}
+
+/** Teilen aus einem Eintrag der Ablage übernehmen, nur wenn es gültig aussieht. @param {unknown} v @returns {ShareInfo | null} */
+function validShare(v) {
+  const share = /** @type {any} */ (v);
+  return share && typeof share.gist === 'string' && share.gist ? { gist: share.gist, since: Number(share.since) || 0 } : null;
 }

@@ -547,3 +547,20 @@ mit den Entscheidungen wie empfohlen:
 - **Zugang:** Menü „Datei → Versionen …“ der App (`ui.openVersions(id)`) und Details der Statusanzeige.
 
 Nächster Schritt: Stufe 4 – Versionen vergleichen (ohne Übersichtsseite, die folgt später); danach Stufe 3 (Supabase).
+
+## Stand: Teilen zum Ansehen (GitHub)
+
+Umgesetzt im Kern `0.4.0` nach den [Mockups](https://github.com/method-commons/morphological-matrix-app/tree/main/docs/mockups/teilen)
+und dem Entwurf oben (Weg 2, ohne Live-Ansicht):
+
+- **Besitzer:** `engine.share(id)` überträgt sofort, legt ein **geheimes Gist** an (Datei `<app>.json` = Eintrag der
+  Ablage) und vermerkt `{ gist, since }` im Eintrag im Repo (`share`) – so erneuern **alle Geräte** des Besitzers
+  den Link bei jedem Abgleich (`PATCH /gists/{id}`). `unshare(id)` löscht das Gist; **Löschen** des Dokuments
+  beendet das Teilen ebenfalls. Ein auf GitHub gelöschtes Gist wird beim nächsten Abgleich vergessen.
+- **Empfänger:** Link `…/#g=<gist>` → `ui.openShared(gist)` liest **ohne Anmeldung** (`fetchShared`), prüft App
+  und Datenformat und zeigt das Dokument **nur lesend** (Vorschau mit Leiste „Geteilte … von … · Stand …“).
+  **Es wird nichts gespeichert** – weder im Browser noch in einer eingerichteten Ablage. „Aktualisieren“ lädt neu,
+  „Als Kopie speichern“ legt bewusst ein eigenes Dokument an, „Schließen“ verwirft die Ansicht.
+- **Token:** Einrichtungsassistent und „Token erneuern“ verlinken ein vorbelegtes fine-grained Token
+  (Contents write, Gists write, 90 Tage). Fehlt „Gists“ (z. B. Repo in einer Organisation), erklärt „Teilen …“ das.
+- **Kennzeichen** „geteilt“ in der Dokumentliste (`DocState`), Klick öffnet „Teilen …“.

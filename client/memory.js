@@ -2,7 +2,7 @@
  * Ablage im Speicher – für Tests und zum Ausprobieren. Verhält sich wie die GitHub-Ablage:
  * jeder Stand bekommt eine neue Kennung, Ändern und Löschen nur auf dem aktuellen Stand.
  */
-import { ConflictError, VERSIONS_PAGE, versionSlug } from './store.js';
+import { ConflictError, SetupError, VERSIONS_PAGE, versionSlug } from './store.js';
 
 /** @typedef {import('./store.js').StoredRecord} StoredRecord */
 
@@ -21,6 +21,8 @@ export class MemoryStore {
     this.counter = 0;
     /** Uhr für die Zeitpunkte der Stände (Tests). */
     this.now = Date.now;
+    /** Geteilte Stände (wie geheime Gists). @type {Map<string, { record: StoredRecord, description: string }>} */
+    this.shares = new Map();
   }
 
   /** @param {string} app @param {string} id */
@@ -90,4 +92,20 @@ export class MemoryStore {
     this.tags.push(tag);
     return { ...tag };
   }
+
+  /** @param {StoredRecord} record @param {string} description */
+  async createShare(record, description) {
+    const gist = `g${(++this.counter).toString(16).padStart(8, '0')}`;
+    this.shares.set(gist, { record: structuredClone(record), description });
+    return gist;
+  }
+
+  /** @param {string} gist @param {StoredRecord} record @param {string} description */
+  async updateShare(gist, record, description) {
+    if (!this.shares.has(gist)) throw new SetupError('share-missing', 404);
+    this.shares.set(gist, { record: structuredClone(record), description });
+  }
+
+  /** @param {string} gist */
+  async deleteShare(gist) { this.shares.delete(gist); }
 }

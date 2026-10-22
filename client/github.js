@@ -207,4 +207,50 @@ export class GitHubStore {
     }
     throw new ConflictError('tag-exists');
   }
+
+  // ---------- Teilen zum Ansehen (geheime Gists) ----------
+
+  /** @param {StoredRecord} record @param {string} description */
+  async createShare(record, description) {
+    const res = await this.request('POST', '/gists', { description, public: false, files: shareFiles(record) });
+    return String(res.id);
+  }
+
+  /** @param {string} gist @param {StoredRecord} record @param {string} description */
+  async updateShare(gist, record, description) {
+    await this.request('PATCH', `/gists/${encodeURIComponent(gist)}`, { description, files: shareFiles(record) });
+  }
+
+  /** @param {string} gist */
+  async deleteShare(gist) {
+    await this.request('DELETE', `/gists/${encodeURIComponent(gist)}`, undefined, { allow404: true });
+  }
+}
+
+/** Datei im Gist: der Eintrag der Ablage, wie im Repo. @param {StoredRecord} record */
+const shareFiles = record => ({ [`${record.app}.json`]: { content: `${JSON.stringify(record, null, 2)}\n` } });
+
+/**
+ * Geteiltes Dokument lesen – ohne Anmeldung (Empfänger brauchen weder Konto noch Ablage).
+ * @param {string} gist @param {typeof fetch} [fetchFn]
+ * @returns {Promise<{ record: StoredRecord, updatedAt: number }>}
+ */
+export async function fetchShared(gist, fetchFn = globalThis.fetch.bind(globalThis)) {
+  if (!/^[0-9a-f]{8,64}$/i.test(gist)) throw new SetupError('share-id', 400);
+  let res;
+  try {
+    res = await fetchFn(`${API}/gists/${gist}`, { cache: 'no-store', headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } });
+  } catch (e) {
+    throw new OfflineError(String(e));
+  }
+  if (res.status === 404) throw new SetupError('share-missing', 404);
+  if (res.status === 403 || res.status === 429) throw new OfflineError('rate-limit');
+  if (!res.ok) throw new OfflineError(`${res.status}`);
+  const body = await res.json();
+  const file = /** @type {any[]} */ (Object.values(body.files ?? {})).find(f => String(f.filename).endsWith('.json'));
+  if (!file || file.truncated || typeof file.content !== 'string') throw new SetupError('share-invalid', 422);
+  let record;
+  try { record = JSON.parse(file.content); } catch (e) { throw new SetupError('share-invalid', 422); }
+  if (!record || typeof record !== 'object') throw new SetupError('share-invalid', 422);
+  return { record, updatedAt: Date.parse(body.updated_at ?? '') || 0 };
 }

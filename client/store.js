@@ -10,6 +10,13 @@
  * @property {number} savedAt Zeitpunkt des Speicherns im Browser (ms)
  * @property {string} device Gerät, das den Stand übertragen hat
  * @property {unknown} data Dokument der App
+ * @property {ShareInfo} [share] geteilt zum Ansehen (alle Geräte des Besitzers aktualisieren den Link)
+ */
+
+/**
+ * @typedef {object} ShareInfo Dokument ist zum Ansehen geteilt (GitHub: geheimes Gist)
+ * @property {string} gist Kennung des Gists
+ * @property {number} since Zeitpunkt des Teilens (ms)
  */
 
 /**
@@ -56,6 +63,10 @@
  * @property {(app: string, id: string, sha: string) => Promise<StoredRecord | null>} getVersion Eintrag eines Stands
  * @property {(app: string, id: string, v: { sha: string, name: string, note?: string, date: number }) => Promise<NamedVersion>} saveVersion
  *   Stand benennen
+ * @property {(record: StoredRecord, description: string) => Promise<string>} [createShare] zum Ansehen teilen; Kennung des Links
+ * @property {(gist: string, record: StoredRecord, description: string) => Promise<void>} [updateShare]
+ *   geteilten Stand erneuern; {@link SetupError} 404, wenn das Teilen inzwischen beendet ist
+ * @property {(gist: string) => Promise<void>} [deleteShare] Teilen beenden
  */
 
 /** Seitengröße der Versionsliste. */
