@@ -344,6 +344,37 @@ per „Aktualisieren“ abgerufen wird, reicht das auch für viele Betrachtende 
 Vorläufige Empfehlung: Momentaufnahme-Link in allen Apps vereinheitlichen; Link zum Ansehen über geheimes Gist für
 GitHub-Ablagen (manuell aktualisieren, Entscheidung des Maintainers); Bearbeiten durch andere mit Supabase.
 
+## Entwurf: Teilen aus einem öffentlichen Repo
+
+*Stand Oktober 2026 – Mockups in der [Morphologischen Matrix](https://github.com/method-commons/morphological-matrix-app/tree/ccr-a2f859dc-axju7f/docs/mockups/teilen-oeffentlich), Entscheidung offen.*
+Liegt die Ablage in einem **öffentlichen** Repo, ist jedes Dokument dort ohnehin für alle lesbar. Statt eines geheimen
+Gists kann der Link dann **direkt auf die Datei im Repo** zeigen – gedacht vor allem für Organisationen, die ihre
+Ergebnisse offen ablegen.
+
+- **Link:** `…/#p=<besitzer>/<repo>/<id>` (aktueller Stand) oder `…/#p=<besitzer>/<repo>/<id>@<commit>` (**fester Stand**,
+  z. B. ein benannter Stand aus „Versionen …“). Die App ergänzt den Pfad `<app>/<id>.json`.
+- **Lesen ohne Anmeldung** über `raw.githubusercontent.com/<besitzer>/<repo>/<HEAD|commit>/<app>/<id>.json`
+  (geprüft: CORS offen, `cache-control: max-age=300` – der aktuelle Stand kann beim Empfänger bis zu 5 Minuten
+  hinterherhängen; ein fester Stand ändert sich nie). Ersatz: Contents-API ohne Anmeldung (60 Abrufe je Stunde).
+- **Empfänger:** dieselbe Ansicht wie beim Gist – nur lesend, **nichts wird gespeichert** (auch nicht in einer
+  eingerichteten Ablage), „Als Kopie speichern“ bewusst; zusätzlich die Herkunft (Repo). Beim festen Stand entfällt
+  „Aktualisieren“, dafür „Aktuellen Stand öffnen“.
+- **Besitzer:** „Teilen …“ prüft die Sichtbarkeit (`GET /repos/…`: `private`, `owner.type`). Öffentlich → Link sofort,
+  kein Gist, **keine Berechtigung „Gists“**, kein Eintrag `share`. Privat → Gist wie bisher.
+- **Kein „Teilen beenden“:** Im öffentlichen Repo schützt das Beenden nichts. Der Link endet mit dem Löschen des
+  Dokuments oder wenn das Repo privat wird.
+
+**Nebenbefund Organisationen:** Gists gehören immer zu einem persönlichen Konto. Ein fine-grained Token mit einer
+**Organisation als Resource owner** bietet „Gists“ nicht an – mit einem Organisations-Repo geht das Teilen über Gists
+heute also nur mit einem zweiten, persönlichen Token. Öffentliche Organisations-Repos brauchen mit diesem Entwurf gar
+kein Gist; für private ist zunächst nur ein Hinweis vorab vorgesehen.
+
+Aufwand: Kern klein (`fetchPublic`, Linkform `#p=`, Weiche im Teilen-Dialog, „Link kopieren“ in „Versionen …“),
+Apps je eine kleine Änderung beim Lesen des Links (`#p=` neben `#g=`) und E2E-Tests.
+
+Vorläufige Empfehlung (Mockups, Entscheidungen 1–6): öffentliches Repo ohne Gist, aktueller und fester Stand, Lesen
+über `raw` mit API als Ersatz, private Organisations-Repos nur mit Hinweis.
+
 ## Sync und Konflikte
 
 Wie in BACKEND.md, ergänzt um:
