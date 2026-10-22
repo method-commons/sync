@@ -272,7 +272,40 @@ GitHub, EU möglich, Zugriffsregeln je Person/Team, Teilnahme aus dem Browser.
 | CouchDB / PouchDB | Dokumentdatenbank mit eingebautem Sync | Offline-Sync und Konflikterkennung „ab Werk“, passt zu lokal zuerst | Hosting (z. B. selbst) nötig, Rechte je Dokument umständlich |
 | Nextcloud / WebDAV | Dateiablage | in vielen Organisationen vorhanden, EU/eigener Server | CORS und Anmeldung aus dem Browser oft schwierig, keine Konfliktprüfung |
 | Firebase | Backend-Dienst (Google) | ausgereift, Realtime, Anmeldung | US-Anbieter, nicht quelloffen, Bindung an Google |
-| Lokal-zuerst-Sync (z. B. Automerge/Yjs mit Sync-Server) | CRDT | echtes gleichzeitiges Bearbeiten ohne Konflikte | braucht einen betriebenen Sync-Server; großer Umbau der Datenhaltung |
+| Lokal-zuerst-Sync (Automerge/Yjs) | CRDT | automatisches Zusammenführen statt Konfliktdialog; **auch ohne eigenen Server** über die bestehende Ablage, siehe [unten](#entwurf-crdt-automergeyjs-ohne-eigenen-server) | großer Umbau der Datenhaltung in allen Apps |
+
+## Entwurf: CRDT (Automerge/Yjs) ohne eigenen Server
+
+*Stand Oktober 2026 – zum Nachdenken, nichts entschieden; Angaben zu den Bibliotheken beim Prototyp prüfen.*
+
+CRDTs (Datenstrukturen, die Änderungen verschiedener Geräte automatisch zusammenführen) brauchen selbst keinen
+Server. Ein Server übernimmt sonst nur *Weiterreichen* in Echtzeit und *Aufbewahren*, solange niemand online ist.
+
+| Weg | Wie | Echtzeit | bleibt, wenn alle offline | eigener Server | Einschätzung |
+|---|---|---|---|---|---|
+| **A. CRDT über die bestehende Ablage** | Dokument als CRDT-Datei in GitHub bzw. Supabase; Abgleich = holen, lokal zusammenführen, zurückschreiben; bei geändertem `sha` erneut, ohne Nachfrage | nein (Abfrage) | ja | nein | **aussichtsreich** |
+| B. Supabase Realtime als Relais | Änderungen über Broadcast-Kanäle, Stand in der Datenbank | ja | ja | nein (Supabase-Projekt) | gut zusammen mit Stufe 3 |
+| C. Browser zu Browser (WebRTC, z. B. y-webrtc) | direkte Verbindung der Geräte | ja | nein | Vermittlungsdienst nötig (öffentliche nur für Demos) | ungeeignet als Ablage |
+| D. gehosteter Dienst (z. B. Liveblocks, Y-Sweet) | Anbieter betreibt den Sync-Server | ja | ja | nein, aber fremder Dienst mit Konto/Kosten | widerspricht „eigene Ablage“ |
+
+**Gewinn (Weg A):** Konfliktdialog entfällt fast immer – nur bei Änderungen am *selben Feld* gewinnt eine Seite
+automatisch, die andere bleibt in den Versionen. Die Ablage muss nur Bytes aufbewahren (GitHub, Supabase, vermutlich
+auch die übrigen Kandidaten). Automerge führt die Änderungsgeschichte im Dokument – Versionen und Vergleichen
+(Stufe 4) unabhängig von der Ablage.
+
+**Kosten:**
+
+- *Datenhaltung der Apps:* größter Umbau bisher (größer als Stufe 3). Automerges `change(doc, d => …)` ähnelt
+  `mutate`; nötig sind Listen mit IDs statt Positionen und CRDT-Text für zeichengenaues Zusammenführen.
+- *Migrationen und `normalize`:* Formatänderungen werden selbst zu CRDT-Änderungen; die Formate der Apps neu denken.
+- *Größe:* große Bibliothek (Automerge mit WebAssembly), nur bei Bedarf nachladen; Dokumente wachsen mit ihrer
+  Geschichte, gelegentlich verdichten.
+- *Lesbarkeit:* Dateien binär statt JSON – Diffs auf GitHub unlesbar; Abhilfe: zusätzlich eine JSON-Fassung ablegen.
+- *Echtzeit:* nur mit Weg B.
+
+**Möglicher nächster Schritt:** Prototyp in der 2-Achsen-Matrix (einfachstes Datenmodell): Automerge über die
+vorhandene GitHub-Ablage, zwei Geräte ändern gleichzeitig. Zu messen: Umfang des Umbaus, Dateigröße, Nachladezeit,
+Verhalten bei Formatänderungen. Erst danach über CRDT für alle Apps entscheiden.
 
 ## Sync und Konflikte
 
