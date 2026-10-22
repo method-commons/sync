@@ -119,6 +119,12 @@ export class GitHubStore {
     return { name: this.repo, isPrivate: !!info.private, created, expiresAt: this.expiresAt };
   }
 
+  /** Sichtbarkeit und Besitzer des Repos. @returns {Promise<import('./store.js').RepoInfo>} */
+  async repoInfo() {
+    const info = await this.request('GET', `/repos/${this.repo}`);
+    return { isPrivate: !!info.private, owner: String(info.owner?.login ?? this.repo.split('/')[0]), isOrganization: info.owner?.type === 'Organization' };
+  }
+
   /** @param {string} app */
   async list(app) {
     const items = await this.request('GET', this.contents(app), undefined, { allow404: true });
@@ -249,8 +255,47 @@ export async function fetchShared(gist, fetchFn = globalThis.fetch.bind(globalTh
   const body = await res.json();
   const file = /** @type {any[]} */ (Object.values(body.files ?? {})).find(f => String(f.filename).endsWith('.json'));
   if (!file || file.truncated || typeof file.content !== 'string') throw new SetupError('share-invalid', 422);
+  return { record: parseRecord(file.content), updatedAt: Date.parse(body.updated_at ?? '') || 0 };
+}
+
+/** Eintrag der Ablage aus geteiltem Text. @param {string} text @returns {StoredRecord} */
+function parseRecord(text) {
   let record;
-  try { record = JSON.parse(file.content); } catch (e) { throw new SetupError('share-invalid', 422); }
-  if (!record || typeof record !== 'object') throw new SetupError('share-invalid', 422);
-  return { record, updatedAt: Date.parse(body.updated_at ?? '') || 0 };
+  try { record = JSON.parse(text); } catch (e) { throw new SetupError('share-invalid', 422); }
+  if (!record || typeof record !== 'object' || Array.isArray(record)) throw new SetupError('share-invalid', 422);
+  return record;
+}
+
+/** Datei eines Dokuments in einem öffentlichen Repo (ohne Anmeldung lesbar). @param {string} repo @param {string} ref @param {string} app @param {string} id */
+export const publicFileUrl = (repo, ref, app, id) => `https://raw.githubusercontent.com/${repo}/${encPath(ref)}/${encPath(`${app}/${id}.json`)}`;
+
+/**
+ * Dokument aus einem öffentlichen Repo lesen – ohne Anmeldung. Zuerst über `raw.githubusercontent.com`
+ * (keine Abruf-Grenze, bis zu 5 Minuten zwischengespeichert), bei Störungen über die API (60 Abrufe je Stunde).
+ * Fehlt die Datei oder ist das Repo nicht öffentlich: {@link SetupError} `share-missing`.
+ * @param {{ repo: string, id: string, ref?: string }} link @param {string} app @param {typeof fetch} [fetchFn]
+ * @returns {Promise<{ record: StoredRecord }>}
+ */
+export async function fetchPublic({ repo, id, ref }, app, fetchFn = globalThis.fetch.bind(globalThis)) {
+  const parts = repo.split('/');
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || parts.some(x => /^\.+$/.test(x)) || !id || id.includes('/') || /^\.+$/.test(id)) throw new SetupError('share-id', 400);
+  /** @type {Response | null} */
+  let res = null;
+  try {
+    res = await fetchFn(publicFileUrl(repo, ref || 'HEAD', app, id), { cache: 'no-cache' });
+  } catch (e) { /* weiter über die API */ }
+  if (!res || (!res.ok && res.status !== 404)) {
+    const q = ref ? `?ref=${encodeURIComponent(ref)}` : '';
+    try {
+      res = await fetchFn(`${API}/repos/${repo}/contents/${encPath(`${app}/${id}.json`)}${q}`, {
+        cache: 'no-store', headers: { Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28' },
+      });
+    } catch (e) {
+      throw new OfflineError(String(e));
+    }
+    if (res.status === 403 || res.status === 429) throw new OfflineError('rate-limit');
+  }
+  if (res.status === 404) throw new SetupError('share-missing', 404);
+  if (!res.ok) throw new OfflineError(`${res.status}`);
+  return { record: parseRecord(await res.text()) };
 }

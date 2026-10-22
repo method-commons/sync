@@ -7,6 +7,7 @@
 import { h, render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { AuthError, ConflictError, OfflineError, SetupError } from '../client/store.js';
+import { isFixedRef, sharedHash } from '../client/config.js';
 import { APP_NAMES, textsFor } from './texts.js';
 
 /** @typedef {import('../client/controller.js').SyncController} SyncController */
@@ -14,6 +15,8 @@ import { APP_NAMES, textsFor } from './texts.js';
 /** @typedef {import('./texts.js').Nouns} Nouns */
 /** @typedef {import('./texts.js').SyncTexts} SyncTexts */
 /** @typedef {import('preact').ComponentChildren} Children */
+/** @typedef {import('../client/config.js').SharedLink} SharedLink */
+/** @typedef {import('../client/store.js').RepoInfo} RepoInfo */
 
 // ---------- Symbole ----------
 
@@ -70,8 +73,8 @@ const tokenUrl = T => `https://github.com/settings/personal-access-tokens/new?${
   name: T.setup.tokenName, description: T.setup.tokenDescription, contents: 'write', gists: 'write', expires_in: '90',
 })}`;
 
-/** Link zum Ansehen eines geteilten Dokuments (in derselben App). @param {string} gist */
-export const shareUrl = gist => `${globalThis.location?.href.split('#')[0] ?? ''}#g=${gist}`;
+/** Link zum Ansehen eines geteilten Dokuments (in derselben App): Gist-Kennung oder Link. @param {string | SharedLink} link */
+export const shareUrl = link => `${globalThis.location?.href.split('#')[0] ?? ''}${sharedHash(typeof link === 'string' ? { kind: 'gist', gist: link } : link)}`;
 
 /** Kennung eines geteilten Dokuments aus der Adresse (`#g=…`), sonst `null`. @param {string} hash */
 export const sharedFromHash = hash => /^#g=([0-9a-f]{8,64})$/i.exec(hash)?.[1] ?? null;
@@ -79,7 +82,8 @@ export const sharedFromHash = hash => /^#g=([0-9a-f]{8,64})$/i.exec(hash)?.[1] ?
 /**
  * @typedef {object} Preview Früherer bzw. geteilter Stand, den die App nur lesend zeigt
  * @property {'version' | 'shared'} [kind] `shared`: per Link geteilt (nichts davon ist im Browser gespeichert)
- * @property {string} [gist] Kennung des geteilten Links
+ * @property {string} [gist] Kennung des geteilten Links (Gist)
+ * @property {SharedLink} [source] woher das geteilte Dokument stammt
  * @property {string} id
  * @property {string} sha
  * @property {number} date
@@ -411,8 +415,11 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     return h('span', { class: 'mcs-doc-meta' }, [v.device || info?.device, info?.summary].filter(Boolean).join(' · ') || '\u00a0');
   }
 
-  /** @param {{ id: string, v: Version, withDate?: boolean }} props */
-  function VersionRow({ id, v, withDate = false }) {
+  /** @param {{ id: string, v: Version, withDate?: boolean, linkable?: boolean }} props */
+  function VersionRow({ id, v, withDate = false, linkable = false }) {
+    const link = linkable && v.name
+      ? h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'version-link', onClick: () => copyUrl(shareUrl(publicLink(id, v.sha))) }, Icon('copy'), T.share.versionLink)
+      : null;
     return h('li', { class: `mcs-doc mcs-version${v.current ? ' is-current' : ''}${v.name ? ' is-named' : ''}`, 'data-version': v.sha },
       h('span', { class: 'mcs-version-time' }, withDate ? dateTime.format(v.date) : timeOnly.format(v.date)),
       h('div', { class: 'mcs-doc-info' },
@@ -421,7 +428,8 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
           v.name ? h('span', { class: 'mcs-version-name' }, Icon('tag', 14), v.name) : null) : null,
         v.note ? h('span', { class: 'mcs-doc-desc' }, v.note) : null,
         h(VersionMeta, { id, v })),
-      v.current ? null : h('div', { class: 'mcs-doc-actions' },
+      v.current ? (link ? h('div', { class: 'mcs-doc-actions' }, link) : null) : h('div', { class: 'mcs-doc-actions' },
+        link,
         h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'view', onClick: () => view(id, v) }, Icon('eye'), T.versions.view),
         h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'restore', onClick: () => openRestore(id, v) }, Icon('undo'), T.versions.restore)));
   }
@@ -439,6 +447,8 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     const local = adapter.read(id);
     const title = local ? adapter.title(local.data) : id;
     const state = sync?.docs[id];
+    const repo = useRepoInfo();
+    const linkable = !!repo && !repo.isPrivate;
 
     /** @param {number} p */
     async function load(p) {
@@ -487,13 +497,13 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
       error ? h('p', { class: 'mcs-error', role: 'alert' }, error) : null,
       items == null ? h('p', { class: 'mcs-muted' }, T.versions.loading)
         : onlyNamed ? (named.length
-          ? h('ul', { class: 'mcs-list' }, named.map(v => h(VersionRow, { id, v, withDate: true, key: v.sha })))
+          ? h('ul', { class: 'mcs-list' }, named.map(v => h(VersionRow, { id, v, withDate: true, linkable, key: v.sha })))
           : h('p', { class: 'mcs-muted' }, T.versions.noNamed))
           : !items.length ? h('p', { class: 'mcs-muted' }, T.versions.empty(nouns))
             : days.map((d, i) => h('section', { class: 'mcs-day', key: d.key },
               h('div', { class: 'mcs-h' }, d.label),
               isOpen(d.key, i)
-                ? h('ul', { class: 'mcs-list' }, d.list.map(v => h(VersionRow, { id, v, key: v.sha })))
+                ? h('ul', { class: 'mcs-list' }, d.list.map(v => h(VersionRow, { id, v, linkable, key: v.sha })))
                 : h('button', { type: 'button', class: 'mcs-collapsed', 'data-sync': 'expand', onClick: () => setOpen(new Set([...open, d.key])) },
                   Icon('right', 14), T.versions.collapsed(d.list.length)))),
       !onlyNamed && more ? h('button', { type: 'button', class: 'mcs-btn mcs-small mcs-more', onClick: () => load(page + 1) }, T.versions.more) : null);
@@ -606,29 +616,38 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
 
   // ---------- Teilen zum Ansehen ----------
 
-  /** Fehlermeldung beim Öffnen eines geteilten Links. @param {unknown} e */
-  function sharedError(e) {
+  /** Fehlermeldung beim Öffnen eines geteilten Links. */
+  /** @param {unknown} e @param {SharedLink} [link] */
+  function sharedError(e, link) {
     const E = T.share.errors;
     if (e instanceof OfflineError) return E.offline;
     if (e instanceof SetupError) {
-      if (e.message === 'share-missing') return E.missing;
+      if (e.message === 'share-missing') return link?.kind === 'public' ? E.missingPublic : E.missing;
       if (e.message === 'share-other-app') return E.otherApp;
       if (e.message === 'newer-schema') return E.newer;
     }
     return E.invalid;
   }
 
-  /** Leiste über einem geteilten Dokument: Aktualisieren, Als Kopie speichern, Schließen. @param {{ p: Preview }} props */
+  /** Geteiltes Dokument lesen – Gist oder öffentliches Repo. @param {SharedLink} link */
+  const readLink = link => (link.kind === 'gist' ? controller.readShared(link.gist) : controller.readPublic(link));
+
+  /**
+   * Leiste über einem geteilten Dokument: Aktualisieren (bzw. beim festen Stand: aktuellen Stand öffnen),
+   * Als Kopie speichern, Schließen. @param {{ p: Preview }} props
+   */
   function SharedBar({ p }) {
     const [busy, setBusy] = useState(false);
+    const link = p.source ?? { kind: 'gist', gist: /** @type {string} */ (p.gist) };
+    const fixed = link.kind === 'public' && isFixedRef(link.ref);
     async function refresh() {
       setBusy(true);
       try {
-        const { data, savedAt, device } = await controller.readShared(/** @type {string} */ (p.gist));
+        const { data, savedAt, device } = await readLink(link);
         setPreview({ ...p, date: savedAt, device, data });
         toast(T.share.refreshed);
       } catch (e) {
-        toast(sharedError(e));
+        toast(sharedError(e, link));
       } finally {
         setBusy(false);
       }
@@ -641,14 +660,87 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
       onOpenDoc(copy.id);
       toast(T.share.copySaved(nouns));
     }
-    return h('div', { class: 'mcs-preview', role: 'status', id: 'syncPreview', 'data-kind': 'shared' },
+    const origin = link.kind === 'public'
+      ? [' ', T.share.viewFrom, ' ', h('a', { class: 'mcs-link', href: repoUrl(link.repo), target: '_blank', rel: 'noopener', 'data-sync': 'shared-origin' }, link.repo, Icon('ext', 14))]
+      : null;
+    return h('div', { class: 'mcs-preview', role: 'status', id: 'syncPreview', 'data-kind': 'shared', 'data-fixed': fixed ? 'true' : null },
       Icon('eye', 18),
       h('div', { class: 'mcs-preview-text' },
-        h('b', null, T.share.viewTitle(nouns)), ' ', T.share.viewMeta(p.device, dateTime.format(p.date)), ' – ', T.share.viewLocked),
+        h('b', null, fixed ? T.share.viewFixed(nouns) : T.share.viewTitle(nouns)), origin ? [origin, ' · '] : ' ', T.share.viewMeta(p.device, dateTime.format(p.date)), ' – ', T.share.viewLocked),
       h('div', { class: 'mcs-row' },
-        h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'shared-refresh', disabled: busy, onClick: refresh }, Icon('sync'), T.share.refresh),
+        fixed
+          ? h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'shared-latest', disabled: busy, onClick: () => openShared({ kind: 'public', repo: link.repo, id: link.id }) }, Icon('sync'), T.share.latest)
+          : h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'shared-refresh', disabled: busy, onClick: refresh }, Icon('sync'), T.share.refresh),
         h('button', { type: 'button', class: 'mcs-btn mcs-small mcs-primary', 'data-sync': 'shared-copy', onClick: saveCopy }, Icon('save'), T.share.saveCopy),
         h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'shared-close', onClick: endPreview }, T.share.close)));
+  }
+
+  /** Link in die Zwischenablage (sonst zum Abschreiben anzeigen). @param {string} url */
+  async function copyUrl(url) {
+    try { await navigator.clipboard.writeText(url); toast(T.share.copied); } catch (e) { window.prompt(T.share.link, url); }
+  }
+
+  /** Link auf ein Dokument im öffentlichen Repo der Ablage; `ref`: fester Stand (Commit). @param {string} id @param {string} [ref] */
+  function publicLink(id, ref) {
+    const config = /** @type {import('../client/config.js').SyncConfig} */ (controller.state.config);
+    const r = ref || config.branch;
+    return /** @type {SharedLink} */ ({ kind: 'public', repo: config.repo, id, ...(r ? { ref: r } : {}) });
+  }
+
+  /** Sichtbarkeit der Ablage (`undefined`: wird gefragt, `null`: unbekannt). */
+  function useRepoInfo() {
+    const [info, setInfo] = useState(/** @type {RepoInfo | null | undefined} */ (undefined));
+    useEffect(() => { controller.engine?.repoInfo().then(setInfo, () => setInfo(null)); }, []);
+    return info;
+  }
+
+  /**
+   * Teilen aus einem öffentlichen Repo: Link direkt auf die Datei (kein Gist, kein „Teilen beenden“) – für den
+   * aktuellen Stand oder einen benannten (fester Stand, Commit). @param {{ id: string, title: string }} props
+   */
+  function PublicShare({ id, title }) {
+    const engine = /** @type {import('../client/engine.js').SyncEngine} */ (controller.engine);
+    const [ready, setReady] = useState(false);
+    const [error, setError] = useState('');
+    const [named, setNamed] = useState(/** @type {Version[]} */ ([]));
+    const [sel, setSel] = useState('');
+    const [fixed, setFixed] = useState(false);
+    useEffect(() => {
+      engine.uploadNow(id).then(() => setReady(true), e => setError(e instanceof ConflictError ? T.versions.conflict
+        : e instanceof SetupError && e.message === 'local-only' ? T.versions.localOnly(nouns) : T.versions.failed(messageOf(e))));
+      engine.versions(id, 1).then(r => { setNamed(r.named); if (r.named[0]) setSel(r.named[0].sha); }, () => {});
+    }, [id]);
+    const v = fixed ? named.find(n => n.sha === sel) : undefined;
+    const link = publicLink(id, v?.sha);
+    const url = shareUrl(link);
+    const ref = link.kind === 'public' && link.ref ? link.ref : 'HEAD';
+    const fileUrl = `${repoUrl(/** @type {any} */ (link).repo)}/blob/${encodeURIComponent(ref)}/${adapter.app}/${encodeURIComponent(id)}.json`;
+    return h('div', { class: 'mcs-share', 'data-sync': 'share-public' },
+      h(Head, { title: T.share.title(title) }),
+      h('p', { class: 'mcs-hint' }, h('span', { class: 'mcs-badge mcs-public' }, T.share.publicBadge), ' ', T.share.publicIntro(nouns)),
+      h('fieldset', { class: 'mcs-choice' },
+        h('label', { class: fixed ? '' : 'is-on' },
+          h('input', { type: 'radio', name: 'share-state', value: 'current', checked: !fixed, onChange: () => setFixed(false) }), T.share.current),
+        h('label', { class: fixed ? 'is-on' : '' },
+          h('input', { type: 'radio', name: 'share-state', value: 'fixed', checked: fixed, disabled: !named.length, onChange: () => setFixed(true) }), T.share.fixed,
+          named.length
+            ? h('select', { class: 'mcs-input', name: 'share-version', value: sel, disabled: !fixed, onChange: (/** @type {any} */ e) => setSel(e.currentTarget.value) },
+              named.map(n => h('option', { value: n.sha, key: n.sha }, `${n.name} · ${when(n.date)}`)))
+            : h('span', { class: 'mcs-muted' }, T.share.noNamed))),
+      error ? h('p', { class: 'mcs-error', role: 'alert' }, error) : null,
+      h('label', { class: 'mcs-field' }, T.share.link,
+        h('div', { class: 'mcs-inline' },
+          h('input', { class: 'mcs-input', readOnly: true, value: ready ? url : T.share.uploading, name: 'share-link', onFocus: (/** @type {any} */ e) => e.currentTarget.select() }),
+          h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'share-copy', disabled: !ready, onClick: () => copyUrl(url) }, Icon('copy'), T.share.copy))),
+      h('dl', { class: 'mcs-kv' },
+        h('dt', null, T.share.readFrom), h('dd', { class: 'mcs-wide' }, T.share.readFromText, ' · ',
+          h('a', { class: 'mcs-link', href: fileUrl, target: '_blank', rel: 'noopener' }, T.share.file, Icon('ext', 14))),
+        h('dt', null, T.share.state), h('dd', { class: 'mcs-wide' }, v ? T.share.stateFixed(v.name ?? '', when(v.date)) : T.share.statePublic),
+        h('dt', null, T.share.editing), h('dd', { class: 'mcs-wide' }, T.share.editingPublic)),
+      h(Note, null, h('b', null, T.share.noStop), ' ', T.share.noStopText),
+      h('div', { class: 'mcs-foot' },
+        h('span', { class: 'mcs-spacer' }),
+        h('button', { type: 'button', class: 'mcs-btn mcs-primary', onClick: closeDialog }, T.share.done)));
   }
 
   /** @param {{ id: string }} props */
@@ -660,6 +752,7 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
     const local = adapter.read(id);
     const title = local ? adapter.title(local.data) : id;
     const info = engine.shareInfo(id);
+    const repo = useRepoInfo();
     void sync; // neu zeichnen, wenn sich die Merkliste ändert
 
     async function create() {
@@ -689,16 +782,17 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
         setBusy(false);
       }
     }
-    async function copyLink() {
-      const url = shareUrl(/** @type {import('../client/store.js').ShareInfo} */ (info).gist);
-      try { await navigator.clipboard.writeText(url); toast(T.share.copied); } catch (e) { window.prompt(T.share.link, url); }
+    // ein vorhandenes Gist bleibt, auch wenn das Repo inzwischen öffentlich ist (beenden hier)
+    if (!info && repo === undefined) {
+      return h('div', { class: 'mcs-share' }, h(Head, { title: T.share.title(title) }), h('p', { class: 'mcs-muted' }, T.share.checking));
     }
-
+    if (!info && repo && !repo.isPrivate) return h(PublicShare, { id, title });
     if (!info) {
       return h('div', { class: 'mcs-share' },
         h(Head, { title: T.share.title(title) }),
         h('p', { class: 'mcs-hint' }, T.share.intro(nouns)),
         h(Note, { icon: 'warn', tone: 'warn' }, h('b', null, T.share.warn), ' ', T.share.warnText),
+        repo?.isOrganization ? h(Note, { icon: 'warn', tone: 'warn' }, h('b', null, T.share.orgPrivate(repo.owner)), ' ', T.share.orgPrivateText) : null,
         h('dl', { class: 'mcs-kv' },
           h('dt', null, T.share.storedAs), h('dd', { class: 'mcs-wide' }, T.share.storedAsText),
           h('dt', null, T.share.editing), h('dd', { class: 'mcs-wide' }, T.share.editingText)),
@@ -714,7 +808,7 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
       h('label', { class: 'mcs-field' }, T.share.link,
         h('div', { class: 'mcs-inline' },
           h('input', { class: 'mcs-input', readOnly: true, value: shareUrl(info.gist), name: 'share-link', onFocus: (/** @type {any} */ e) => e.currentTarget.select() }),
-          h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'share-copy', onClick: copyLink }, Icon('copy'), T.share.copy))),
+          h('button', { type: 'button', class: 'mcs-btn mcs-small', 'data-sync': 'share-copy', onClick: () => copyUrl(shareUrl(info.gist)) }, Icon('copy'), T.share.copy))),
       h('dl', { class: 'mcs-kv' },
         h('dt', null, T.share.since), h('dd', { class: 'mcs-wide' }, when(info.since)),
         h('dt', null, T.share.state), h('dd', { class: 'mcs-wide' }, T.share.stateText),
@@ -841,17 +935,21 @@ export function createSyncUI({ controller, lang, nouns, currentId = () => null, 
   }
 
   /**
-   * Geteiltes Dokument nur lesend zeigen (Link `#g=…`). Es wird **nichts** gespeichert – weder im Browser noch in
-   * einer eingerichteten Ablage; erst „Als Kopie speichern“ legt bewusst ein Dokument an.
-   * @param {string} gist @returns {Promise<boolean>}
+   * Geteiltes Dokument nur lesend zeigen (Link `#g=…` bzw. `#p=…`). Es wird **nichts** gespeichert – weder im Browser
+   * noch in einer eingerichteten Ablage; erst „Als Kopie speichern“ legt bewusst ein Dokument an.
+   * @param {string | SharedLink} arg Gist-Kennung oder Link (`sharedLink` aus `@method-commons/sync/config`)
+   * @returns {Promise<boolean>}
    */
-  async function openShared(gist) {
+  async function openShared(arg) {
+    /** @type {SharedLink} */
+    const link = typeof arg === 'string' ? { kind: 'gist', gist: arg } : arg;
     try {
-      const { data, savedAt, device } = await controller.readShared(gist);
-      setPreview({ kind: 'shared', gist, id: gist, sha: '', date: savedAt, device, data });
+      const { data, savedAt, device } = await readLink(link);
+      const key = link.kind === 'gist' ? link.gist : `${link.repo}/${link.id}`;
+      setPreview({ kind: 'shared', source: link, ...(link.kind === 'gist' ? { gist: link.gist } : {}), id: key, sha: '', date: savedAt, device, data });
       return true;
     } catch (e) {
-      toast(sharedError(e));
+      toast(sharedError(e, link));
       return false;
     }
   }

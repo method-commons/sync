@@ -6,7 +6,7 @@
 import { CONFIG_KEY, clearConfig, defaultDevice, defaultStorage, loadConfig, saveConfig } from './config.js';
 import { SetupError } from './store.js';
 import { META_PREFIX, SyncEngine } from './engine.js';
-import { GitHubStore, fetchShared } from './github.js';
+import { GitHubStore, fetchPublic, fetchShared } from './github.js';
 
 /** @typedef {import('./config.js').SyncConfig} SyncConfig */
 /** @typedef {import('./config.js').KeyValue} KeyValue */
@@ -185,6 +185,20 @@ export class SyncController {
    */
   async readShared(gist) {
     const { record } = await fetchShared(gist, this.fetch);
+    return this.sharedData(record);
+  }
+
+  /**
+   * Dokument aus einem öffentlichen Repo lesen (Empfänger, ohne Anmeldung); prüft App und Datenformat.
+   * @param {{ repo: string, id: string, ref?: string }} link @returns {Promise<{ data: unknown, savedAt: number, device: string }>}
+   */
+  async readPublic(link) {
+    const { record } = await fetchPublic(link, this.adapter.app, this.fetch);
+    return this.sharedData(record);
+  }
+
+  /** @param {import('./store.js').StoredRecord} record */
+  sharedData(record) {
     if (record.app !== this.adapter.app) throw new SetupError('share-other-app', 400);
     if (Number(record.schemaVersion) > this.adapter.schemaVersion) throw new SetupError('newer-schema', 400);
     return { data: this.adapter.normalize(record.data), savedAt: Number(record.savedAt) || 0, device: String(record.device || '') };

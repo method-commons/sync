@@ -187,3 +187,9 @@
 .mcs-share-dialog .mcs-kv { grid-template-columns: 140px 1fr; }
 .mcs-badge.mcs-shared { margin: 0; border: 0; cursor: pointer; font: inherit; font-size: .7rem; font-weight: 650; background: var(--accent-soft); color: var(--accent); }
 
+.mcs-badge.mcs-public { margin: 0 4px 0 0; background: var(--accent-soft); color: var(--accent); }
+.mcs-choice { display: grid; gap: 6px; margin: 4px 0 12px; padding: 0; border: 0; min-width: 0; }
+.mcs-choice label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: .88rem; cursor: pointer; }
+.mcs-choice label.is-on { border-color: var(--accent); background: var(--accent-soft); }
+.mcs-choice input[type="radio"] { margin: 0; accent-color: var(--accent); }
+.mcs-choice select { width: auto; max-width: 100%; margin-left: auto; padding: 4px 8px; font-size: .84rem; }

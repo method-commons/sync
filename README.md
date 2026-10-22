@@ -20,8 +20,8 @@ allen Geräten, Versionen, später Teilen im Team. Die Apps bleiben ohne Konto i
 | [docs/KONZEPT.md](docs/KONZEPT.md) | Gesamtkonzept: Aufbau, Schnittstelle, Ablagen (GitHub, Supabase), Sync, Versionen, Sicherheit, Stufen, Entscheidungen, Stand |
 | `client/engine.js` | Abgleich: lokal zuerst, Drosselung (5 Min. je Dokument), Konflikte, Löschen, mehrere Tabs |
 | `client/controller.js` | je App: Einstellungen, Start, Einrichten, Token erneuern, Gerätename, Trennen, Ereignisse anderer Tabs |
-| `client/config.js` | gemeinsame Einstellungen aller Apps (localStorage), Gerätename – ohne Importe |
-| `client/github.js`, `client/memory.js` | Ablagen: GitHub-Repo (Contents-API), Speicher (Tests) |
+| `client/config.js` | gemeinsame Einstellungen aller Apps (localStorage), Gerätename, Links zum Ansehen (`sharedLink`) – ohne Importe |
+| `client/github.js`, `client/memory.js` | Ablagen: GitHub-Repo (Contents-API, Gists, Lesen öffentlicher Dateien), Speicher (Tests) |
 | `ui/index.js`, `ui/texts.js`, `ui/styles.css` | Oberfläche (Preact ohne JSX, eigene Klassen `mcs-…` auf den gemeinsamen Tokens): Statusanzeige, Einrichtung, Ablage, Konflikt, Zustand je Dokument |
 
 Grundlage ist das Backend-Konzept der Morphologischen Matrix
@@ -49,7 +49,7 @@ SSH-Schlüssel. Prüfen: In `package-lock.json` muss `resolved` mit `git+https:/
 
 ```js
 // fest eingebunden – klein, ohne Importe
-import { CONFIG_KEY, hasConfig } from '@method-commons/sync/config';
+import { CONFIG_KEY, hasConfig, sharedLink } from '@method-commons/sync/config';
 
 // erst bei Bedarf (eingerichtet oder „Ablage …“ gewählt)
 const [core, syncUi] = await Promise.all([
@@ -64,8 +64,10 @@ render(h(ui.PreviewBar), slotAboveContent); // Leiste beim Ansehen eines früher
 controller.start();
 // nach dem Speichern: controller.changed(id) · nach dem Löschen: controller.removed(id)
 // Menü: ui.openStorage(), ui.openVersions(id), ui.openShare(id) · vor einem Dokumentwechsel: ui.endPreview()
-// Link `#g=<gist>` (geteilt zum Ansehen): ui.openShared(gist) – zeigt nur lesend über onPreview({ kind: 'shared', data }),
-// speichert nichts; erst „Als Kopie speichern“ legt über adapter.duplicate/write ein Dokument an
+// Link zum Ansehen (`#g=<gist>` geheimes Gist, `#p=<besitzer>/<repo>/<id>[@<commit>]` öffentliches Repo):
+// const link = sharedLink(location.hash)  (aus '@method-commons/sync/config') → ui.openShared(link)
+// zeigt nur lesend über onPreview({ kind: 'shared', data }), speichert nichts; erst „Als Kopie speichern“
+// legt über adapter.duplicate/write ein Dokument an
 ```
 
 - `adapter`: siehe [KONZEPT – Was jede App liefert](docs/KONZEPT.md#was-jede-app-liefert); Kennung `app` = Name des App-Repos.

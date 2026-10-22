@@ -23,10 +23,14 @@ export class MemoryStore {
     this.now = Date.now;
     /** Geteilte Stände (wie geheime Gists). @type {Map<string, { record: StoredRecord, description: string }>} */
     this.shares = new Map();
+    /** Sichtbarkeit (Tests: öffentlich schalten). @type {import('./store.js').RepoInfo} */
+    this.repo = { isPrivate: true, owner: name, isOrganization: false };
   }
 
   /** @param {string} app @param {string} id */
   static path(app, id) { return `${app}/${id}.json`; }
+
+  async repoInfo() { return { ...this.repo }; }
 
   async check() { return { name: this.name, isPrivate: true, created: false, expiresAt: null }; }
 

@@ -169,6 +169,8 @@ export class SyncEngine {
     this.stopped = false;
     /** Beschreibungen früherer Stände je Kennung. @type {Map<string, Promise<VersionInfo | null>>} */
     this.versionInfos = new Map();
+    /** Laufende bzw. beantwortete Frage nach der Sichtbarkeit. @type {Promise<import('./store.js').RepoInfo | null> | null} */
+    this.repoInfoRequest = null;
   }
 
   // ---------- Merkliste ----------
@@ -586,6 +588,28 @@ export class SyncEngine {
   // ---------- Versionen ----------
 
   /**
+   * Aktuellen Stand sofort übertragen (ohne Drosselung), etwa vor dem Benennen oder Teilen.
+   * Wirft {@link ConflictError} bei einem offenen Konflikt, {@link SetupError} `local-only`, wenn das
+   * Dokument nur im Browser bleiben soll.
+   * @param {string} id
+   */
+  async uploadNow(id) {
+    const { adapter } = this;
+    await this.run({ force: true });
+    await this.withLock(async () => {
+      const meta = this.loadMeta();
+      const m = meta[id];
+      const local = adapter.read(id);
+      if (!local || m?.localOnly) throw new SetupError('local-only', 400);
+      if (m?.conflict !== undefined) throw new ConflictError();
+      // während eines laufenden Abgleichs geändert: jetzt übertragen
+      if (!m || !m.head || isDirty(local, m)) await this.push(local, m?.head ?? null, meta);
+      if (meta[id]?.conflict !== undefined) throw new ConflictError();
+    });
+    this.refreshDocs(this.loadMeta());
+  }
+
+  /**
    * Stände eines Dokuments, neueste zuerst; benannte Stände mit Name und Notiz. Seite 1 markiert den
    * neuesten als `current`. Benannte Stände, deren Commit nicht auf der Seite liegt, fehlen hier –
    * `named` liefert sie alle (für den Filter „Nur benannte“).
@@ -649,18 +673,7 @@ export class SyncEngine {
    */
   async saveVersion(id, name, note = '') {
     const { adapter } = this;
-    await this.run({ force: true });
-    await this.withLock(async () => {
-      const meta = this.loadMeta();
-      const m = meta[id];
-      const local = adapter.read(id);
-      if (!local || m?.localOnly) throw new SetupError('local-only', 400);
-      if (m?.conflict !== undefined) throw new ConflictError();
-      // während eines laufenden Abgleichs geändert: jetzt übertragen
-      if (!m || !m.head || isDirty(local, m)) await this.push(local, m?.head ?? null, meta);
-      if (meta[id]?.conflict !== undefined) throw new ConflictError();
-    });
-    this.refreshDocs(this.loadMeta());
+    await this.uploadNow(id);
     const { items } = await this.store.versions(adapter.app, id, 1);
     if (!items[0]) throw new SetupError('version-missing', 404);
     return this.store.saveVersion(adapter.app, id, { sha: items[0].sha, name: name.trim(), note: note.trim(), date: this.now() });
@@ -697,6 +710,18 @@ export class SyncEngine {
   }
 
   // ---------- Teilen zum Ansehen ----------
+
+  /**
+   * Sichtbarkeit und Besitzer der Ablage (einmal je Sitzung gefragt); `null`, wenn die Ablage es nicht kennt.
+   * @returns {Promise<import('./store.js').RepoInfo | null>}
+   */
+  repoInfo() {
+    if (!this.repoInfoRequest) {
+      this.repoInfoRequest = this.store.repoInfo ? this.store.repoInfo() : Promise.resolve(null);
+      this.repoInfoRequest.catch(() => { this.repoInfoRequest = null; });
+    }
+    return this.repoInfoRequest;
+  }
 
   /** Geteilt? @param {string} id @returns {ShareInfo | null} */
   shareInfo(id) { return this.loadMeta()[id]?.share ?? null; }

@@ -34,6 +34,13 @@
  */
 
 /**
+ * @typedef {object} RepoInfo Sichtbarkeit und Besitzer der Ablage (entscheidet, wie geteilt wird)
+ * @property {boolean} isPrivate
+ * @property {string} owner Konto bzw. Organisation
+ * @property {boolean} isOrganization
+ */
+
+/**
  * @typedef {object} VersionEntry Ein übertragener Stand (GitHub: Commit, der die Datei ändert)
  * @property {string} sha Kennung des Stands (Commit)
  * @property {number} date Zeitpunkt (ms)
@@ -67,6 +74,7 @@
  * @property {(gist: string, record: StoredRecord, description: string) => Promise<void>} [updateShare]
  *   geteilten Stand erneuern; {@link SetupError} 404, wenn das Teilen inzwischen beendet ist
  * @property {(gist: string) => Promise<void>} [deleteShare] Teilen beenden
+ * @property {() => Promise<RepoInfo>} [repoInfo] Sichtbarkeit und Besitzer (öffentlich: Teilen ohne Gist)
  */
 
 /** Seitengröße der Versionsliste. */

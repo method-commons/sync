@@ -346,7 +346,7 @@ GitHub-Ablagen (manuell aktualisieren, Entscheidung des Maintainers); Bearbeiten
 
 ## Entwurf: Teilen aus einem öffentlichen Repo
 
-*Stand Oktober 2026 – Mockups in der [Morphologischen Matrix](https://github.com/method-commons/morphological-matrix-app/tree/ccr-a2f859dc-axju7f/docs/mockups/teilen-oeffentlich), Entscheidung offen.*
+*Stand Oktober 2026 – [Mockups](https://github.com/method-commons/morphological-matrix-app/tree/main/docs/mockups/teilen-oeffentlich), Entscheidungen 1–6 wie empfohlen; umgesetzt in `0.5.0` (siehe „Stand“ unten).*
 Liegt die Ablage in einem **öffentlichen** Repo, ist jedes Dokument dort ohnehin für alle lesbar. Statt eines geheimen
 Gists kann der Link dann **direkt auf die Datei im Repo** zeigen – gedacht vor allem für Organisationen, die ihre
 Ergebnisse offen ablegen.
@@ -595,3 +595,20 @@ und dem Entwurf oben (Weg 2, ohne Live-Ansicht):
 - **Token:** Einrichtungsassistent und „Token erneuern“ verlinken ein vorbelegtes fine-grained Token
   (Contents write, Gists write, 90 Tage). Fehlt „Gists“ (z. B. Repo in einer Organisation), erklärt „Teilen …“ das.
 - **Kennzeichen** „geteilt“ in der Dokumentliste (`DocState`), Klick öffnet „Teilen …“.
+
+## Stand: Teilen aus einem öffentlichen Repo
+
+Umgesetzt im Kern `0.5.0` nach den [Mockups](https://github.com/method-commons/morphological-matrix-app/tree/main/docs/mockups/teilen-oeffentlich)
+und dem Entwurf oben (Entscheidungen wie empfohlen):
+
+- **Erkennen:** „Teilen …“ fragt einmal je Sitzung `engine.repoInfo()` (`GET /repos/…`: privat?, Organisation?).
+  Öffentlich und noch kein Gist → Dialog ohne Gist; privat → Gist wie bisher, bei einer Organisation mit Hinweis vorab.
+  Ein vorhandenes Gist bleibt (beenden über „Teilen …“).
+- **Besitzer:** `engine.uploadNow(id)` überträgt sofort (auch vor „Stand speichern“); der Link zeigt dann auf die Datei:
+  `#p=<besitzer>/<repo>/<id>` (aktueller Stand, ggf. `@<branch>`) bzw. `@<commit>` (fester Stand, benannte Version).
+  Kein Eintrag `share`, kein Kennzeichen, kein „Teilen beenden“. In „Versionen …“ hat jeder benannte Stand „Link kopieren“.
+- **Empfänger:** `sharedLink(hash)` (in `config.js`, ohne Importe) erkennt `#g=` und `#p=`; `ui.openShared(link)` liest
+  mit `controller.readPublic` → `fetchPublic` über `raw.githubusercontent.com` (bis 5 Min. zwischengespeichert),
+  bei Störungen über die Contents-API ohne Anmeldung. Ansicht wie beim Gist, zusätzlich die Herkunft (Repo);
+  beim festen Stand „Aktuellen Stand öffnen“ statt „Aktualisieren“. **Es wird nichts gespeichert.**
+

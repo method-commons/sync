@@ -68,3 +68,38 @@ export function defaultDevice(nav = globalThis.navigator) {
   const os = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
   return [browser, os].filter(Boolean).join(' · ') || 'Browser';
 }
+
+// ---------- Links zum Ansehen ----------
+
+/**
+ * @typedef {{ kind: 'gist', gist: string } | { kind: 'public', repo: string, id: string, ref?: string }} SharedLink
+ * Geteiltes Dokument: geheimes Gist (`#g=<gist>`) oder Datei in einem öffentlichen Repo
+ * (`#p=<besitzer>/<repo>/<id>[@<ref>]`, `ref` = Branch oder Commit; ohne `ref` der Standard-Branch).
+ */
+
+/** Fester Stand (Commit) statt Branch? @param {string | undefined} ref */
+export const isFixedRef = ref => !!ref && /^[0-9a-f]{40}$/i.test(ref);
+
+/**
+ * Geteiltes Dokument aus der Adresse, sonst `null`. Ohne Importe, damit Apps es fest einbinden können.
+ * @param {string} hash @returns {SharedLink | null}
+ */
+export function sharedLink(hash) {
+  const gist = /^#g=([0-9a-f]{8,64})$/i.exec(hash)?.[1];
+  if (gist) return { kind: 'gist', gist };
+  const m = /^#p=([\w.-]+)\/([\w.-]+)\/([^/@]+)(?:@([^/@]+))?$/.exec(hash);
+  if (!m || [m[1], m[2]].some(x => /^\.+$/.test(x))) return null;
+  try {
+    const id = decodeURIComponent(m[3]);
+    const ref = m[4] ? decodeURIComponent(m[4]) : undefined;
+    return { kind: 'public', repo: `${m[1]}/${m[2]}`, id, ...(ref ? { ref } : {}) };
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Adresse (`#…`) zu einem geteilten Dokument. @param {SharedLink} link */
+export function sharedHash(link) {
+  if (link.kind === 'gist') return `#g=${link.gist}`;
+  return `#p=${link.repo}/${encodeURIComponent(link.id)}${link.ref ? `@${encodeURIComponent(link.ref)}` : ''}`;
+}

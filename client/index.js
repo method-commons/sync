@@ -3,8 +3,8 @@
  * Die Oberfläche (Preact) liegt getrennt unter `@method-commons/sync/ui`.
  */
 export { SyncEngine, META_PREFIX, fingerprint } from './engine.js';
-export { GitHubStore, MARKER, encodeBase64, decodeBase64, parseExpiry, fetchShared } from './github.js';
+export { GitHubStore, MARKER, encodeBase64, decodeBase64, parseExpiry, fetchShared, fetchPublic, publicFileUrl } from './github.js';
 export { MemoryStore } from './memory.js';
 export { ConflictError, AuthError, OfflineError, SetupError } from './store.js';
-export { CONFIG_KEY, TOKEN_KEY, loadConfig, hasConfig, saveConfig, clearConfig, defaultDevice } from './config.js';
+export { CONFIG_KEY, TOKEN_KEY, loadConfig, hasConfig, saveConfig, clearConfig, defaultDevice, sharedLink, sharedHash, isFixedRef } from './config.js';
 export { SyncController, createStore } from './controller.js';
