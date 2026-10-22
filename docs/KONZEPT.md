@@ -184,6 +184,43 @@ BACKEND.md vollständig.
 | Datenort | GitHub (US) | EU oder eigenes Netz | beim Maintainer |
 | Betrieb/Recht beim Maintainer | kaum | kaum | voll |
 
+## Funktionsvergleich: nur Browser, GitHub, Supabase
+
+Aus Sicht der Nutzenden (Oktober 2026; Angaben zu Supabase-Plänen und -Grenzen vor einer Entscheidung prüfen).
+
+| | Nur Browser | GitHub-Repo (umgesetzt) | Supabase-Projekt (Stufe 3) |
+|---|---|---|---|
+| **Grundlagen** | | | |
+| Einrichtung | keine | Repo anlegen, fine-grained Token | Projekt anlegen, SQL-Skript, Adresse und Schlüssel |
+| Konto nötig | nein | GitHub-Konto je Person | Konto beim Einrichten; Nutzende per E-Mail-Link |
+| Kosten | keine | kostenlos | kostenloser Plan reicht für Teams; bezahlt ca. 25 $/Monat |
+| Datenort | nur dieses Gerät | GitHub (USA) | wählbar, z. B. Frankfurt (EU), oder selbst betrieben |
+| **Arbeiten** | | | |
+| Mehrere Geräte | nein (Export/Import) | ja, Abgleich im Hintergrund | ja, Abgleich im Hintergrund |
+| Offline | ja | ja, wird nachgeholt | ja, wird nachgeholt |
+| Änderungen anderer Geräte | – | Abfrage alle 2 Min. | sofort (Realtime) |
+| Konflikte | – | Dialog (mein/Ablage/beide) | Dialog (mein/Ablage/beide) |
+| Versionen | nein | Commits und benannte Stände (Tags) | Tabelle `versions` (z. B. letzte 50, dann eine je Tag; benannte bleiben) |
+| Vergleichen (Stufe 4) | – | ja | ja |
+| Löschen | sofort, endgültig | aus dem Repo, bleibt in der Historie | echt löschen |
+| Verlauf außerhalb der App | – | auf GitHub (Commits, Diff) | Supabase-Dashboard |
+| Grenzen | ca. 5–10 MB je Browser | 5.000 API-Anfragen/h; Abgleich je Dokument höchstens alle 5 Min. | Datenbankgröße im kostenlosen Plan (ca. 500 MB) |
+| **Team und Sicherheit** | | | |
+| Teilen | Teilen-Link, JSON | alle mit Repo-Zugriff sehen alles | Rechte je Dokument (lesen, bearbeiten; Stufe 5) |
+| Einladen | – | Repo-Zugriff und eigenes Token je Person | Einladungslink, Anmeldung per E-Mail |
+| Zugang | – | Token im Browser, läuft ab | Sitzung per Anmeldung, erneuert sich selbst |
+| Anonyme Umfragen (Stufe 6) | nur „im Raum“ auf einem Gerät | nicht anonym möglich | möglich (abgeben ohne lesen) |
+| Datenschutz | unkritisch | Daten in den USA | EU-Region oder eigener Server |
+| **Betrieb** | | | |
+| Wartung | keine | Token erneuern | gering; kostenloses Projekt pausiert nach ca. 1 Woche ohne Nutzung |
+| Ausstieg | Backup-Datei | Repo klonen (lesbares JSON) | Export (SQL/CSV) |
+| Eigener Server | – | nein | ja (quelloffen) |
+| Aufwand für uns | – | erledigt | groß: Adapter, SQL-Skript, Anmeldung, Assistent |
+
+**Kurz:** *Nur Browser* bleibt der Standard für Einzelne auf einem Gerät. *GitHub* passt für Einzelne und kleine
+Teams mit GitHub-Konten, die Nachvollziehbarkeit wollen. *Supabase* passt für Teams ohne GitHub, mit
+EU-Anforderung, Rechten je Dokument oder anonymen Umfragen.
+
 ## Sync und Konflikte
 
 Wie in BACKEND.md, ergänzt um:
