@@ -307,6 +307,41 @@ auch die übrigen Kandidaten). Automerge führt die Änderungsgeschichte im Doku
 vorhandene GitHub-Ablage, zwei Geräte ändern gleichzeitig. Zu messen: Umfang des Umbaus, Dateigröße, Nachladezeit,
 Verhalten bei Formatänderungen. Erst danach über CRDT für alle Apps entscheiden.
 
+## Entwurf: Links zum Teilen aus einer GitHub-Ablage
+
+*Stand Oktober 2026 – zum Nachdenken, nichts entschieden.* Grundsatz: Bei GitHub gelten Rechte immer für das
+**ganze Repo**, nie für eine Datei – wer ein Dokument bearbeiten darf, darf alle bearbeiten.
+
+| Weg | Wie | Empfänger braucht | aktuell | Zugriff | Einschätzung |
+|---|---|---|---|---|---|
+| 1. Momentaufnahme-Link | Dokument komprimiert im Link (wie `#m=…` der Morphologischen Matrix) | nichts | nein, Stand beim Teilen | nur dieses Dokument | teils vorhanden, in allen Apps vereinheitlichen |
+| **2. Live-Link über ein geheimes Gist** | App legt das geteilte Dokument zusätzlich als *secret Gist* ab und aktualisiert es bei jedem Abgleich; der Link enthält nur die Gist-ID | nichts | **ja** | nur dieses Dokument, **nur lesen** | **aussichtsreich** |
+| 3. Token im Link | zweites Token (lesen oder schreiben) steckt im Link | nichts | ja | **ganzes Repo** | nicht empfehlenswert |
+| 4. Mitarbeitende im Repo | auf GitHub einladen, eigenes Token | GitHub-Konto | ja, mit Bearbeiten | ganzes Repo | geht heute schon |
+| 5. eigenes Repo je Dokument | geteiltes Dokument in separatem Repo | je nach Variante | ja | nur dieses Dokument | möglich, aber umständlich |
+
+**Weg 2 im Ablauf:** „Teilen … → Link zum Ansehen“ legt das Gist an (Link z. B. `…/5-why-app/#g=<gist-id>`);
+jeder Abgleich schreibt den neuen Stand auch ins Gist (die Gist-Historie liefert nebenbei Versionen). Der Empfänger
+öffnet den Link, die App lädt das Gist **ohne Anmeldung** und zeigt es nur lesend (Vorschau aus Stufe 2 mit Leiste
+„Geteilt von … · Stand von …“, optional „Als Kopie speichern“). „Teilen beenden“ löscht das Gist.
+
+**Geprüft in der GitHub-Dokumentation (Oktober 2026):**
+
+- Fine-grained Tokens haben die **Benutzer-Berechtigung „Gists“**; mit *write* dürfen sie Gists anlegen
+  (`POST /gists`), ändern (`PATCH /gists/{id}`) und löschen (`DELETE /gists/{id}`).
+- **Lesen eines Gists** (`GET /gists/{id}`) geht **ohne Anmeldung** (permissionless access).
+- *Secret gists aren't private:* Sie erscheinen nicht in der Suche, aber wer den Link hat, kann sie sehen –
+  auch bei Weitergabe. GitHub durchsucht geheime Gists nach geleakten Schlüsseln (für uns ohne Belang).
+- Folge für bestehende Ablagen: Das Token braucht zusätzlich „Gists: Read and write“ – einmal erneuern
+  (Einrichtungsassistent und „Token erneuern“ entsprechend ergänzen).
+
+**Grenzen:** Ohne Anmeldung sind Abrufe pro Netzwerk begrenzt (bekannt: 60 je Stunde) – genug für eine Abfrage
+alle 2 Minuten, knapp bei vielen Betrachtenden im selben WLAN. Bearbeiten durch andere nicht über GitHub lösen
+(Wege 3–5), sondern mit Supabase (Stufen 3 und 5); bis dahin Weg 4 für vertraute Personen.
+
+Vorläufige Empfehlung: Momentaufnahme-Link in allen Apps vereinheitlichen; Live-Link über geheimes Gist für
+GitHub-Ablagen; Bearbeiten durch andere mit Supabase.
+
 ## Sync und Konflikte
 
 Wie in BACKEND.md, ergänzt um:
